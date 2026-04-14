@@ -56,6 +56,10 @@
             <h1 class="text-xl font-semibold tracking-tight text-slate-900">StepperControl Pro</h1>
         </div>
         <div class="flex items-center gap-4">
+            <button id="btn-library" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 outline-none">
+                <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                Biblioteca
+            </button>
             <select id="baud-rate" name="baud_rate" autocomplete="off" class="bg-slate-50 border border-slate-200 text-sm font-medium rounded-lg py-2 pl-3 pr-8 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none outline-none cursor-pointer transition hover:bg-slate-100 text-slate-700 font-variant-numeric-tabular-nums">
                 <option value="9600">9600 bps</option>
                 <option value="115200" selected>115200 bps</option>
@@ -143,7 +147,15 @@
                     </div>
                 </div>
                 
-                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                    <div class="flex gap-2">
+                        <button id="btn-clear-queue" class="text-xs font-medium text-slate-500 hover:text-rose-600 px-3 py-2 rounded-lg hover:bg-rose-50 transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 outline-none">
+                            Limpar Fila Atual
+                        </button>
+                        <button id="btn-save-queue" disabled class="text-xs font-medium text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 shadow-sm transition transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 outline-none">
+                            Salvar Sequência
+                        </button>
+                    </div>
                     <button id="btn-add-cmd" disabled class="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-2 transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-800 focus-visible:outline-none">
                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         Push to Array
@@ -256,6 +268,47 @@
     <!-- Toasts Analytics (Substitui o Terminal Antigo) -->
     <div id="toast-container" aria-live="polite" aria-atomic="true" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 items-end pointer-events-none"></div>
 
+    <!-- Library Modal -->
+    <div id="modal-library" class="fixed inset-0 z-[60] hidden overflow-y-auto" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div id="modal-overlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity"></div>
+            
+            <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all border border-slate-200">
+                <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Biblioteca de Sequências</h2>
+                        <p class="text-sm text-slate-500">Gerencie e execute conjuntos de comandos salvos localmente.</p>
+                    </div>
+                    <button id="btn-close-modal" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 outline-none">
+                        <svg aria-hidden="true" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                
+                <div class="p-8 max-h-[60vh] overflow-y-auto" id="library-content">
+                    <!-- Sequences list will be injected here -->
+                    <div class="flex flex-col items-center justify-center py-12 text-center" id="library-empty">
+                        <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
+                            <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        </div>
+                        <h3 class="text-slate-900 font-semibold mb-1">Nenhuma sequência salva</h3>
+                        <p class="text-slate-500 text-sm max-w-xs">Desenvolva movimentos e clique no botão de salvar para iniciar sua biblioteca técnica.</p>
+                    </div>
+                    <div id="library-list" class="grid grid-cols-1 gap-3 hidden">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+                
+                <div class="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400">
+                    <span class="flex items-center gap-1.5 font-medium">
+                        <svg class="w-3.5 h-3.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                        Dados persistidos via LocalStorage.
+                    </span>
+                    <button id="btn-clear-all-library" class="text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider transition-colors hover:bg-rose-50 px-3 py-2 rounded-lg">Limpar Tudo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Interface Logic -->
     <script>
         // Web Serial API Params
@@ -264,6 +317,7 @@
         let writer;
         let keepReading = true;
         let lastCommandSent = "";
+        let currentQueue = []; // Persistência temporária da sessão atual
 
         // UI Element Hooks
         const btnConnect = document.getElementById('btn-connect');
@@ -273,7 +327,7 @@
         
         const controls = [
             'btn-add-cmd', 'btn-run', 'btn-stop', 'btn-run-one',
-            'btn-set-pause', 'btn-repeat-all'
+            'btn-set-pause', 'btn-repeat-all', 'btn-save-queue', 'btn-library'
         ].map(id => document.getElementById(id));
 
         // Dicionário do Arduino
@@ -437,7 +491,7 @@
                     const st = document.getElementById('tel-state');
                     st.textContent = "Standby";
                     st.className = "text-[13px] font-mono text-slate-400 truncate";
-                    if (line === "B1" || line === "A0") document.getElementById('tel-queue').textContent = "0";
+                    if (line === "B1" || line === "A0" || line === "B5") document.getElementById('tel-queue').textContent = "0";
                 }
                 return hexResponses[line];
             }
@@ -551,8 +605,282 @@
             const cmd = buildCommandFromInputs();
             if (cmd) {
                 lastCommandSent = cmd;
+                currentQueue.push(cmd);
+                updateQueueButtons();
                 document.getElementById('btn-run-one').disabled = false;
                 sendCommand(cmd);
+            }
+        });
+
+        function updateQueueButtons() {
+            const saveBtn = document.getElementById('btn-save-queue');
+            const clearBtn = document.getElementById('btn-clear-queue');
+            saveBtn.disabled = currentQueue.length === 0;
+            clearBtn.disabled = currentQueue.length === 0;
+        }
+
+        document.getElementById('btn-clear-queue').addEventListener('click', () => {
+            currentQueue = [];
+            updateQueueButtons();
+            showToast("Fila da sessão limpa localmente.", "info");
+        });
+
+        document.getElementById('btn-save-queue').addEventListener('click', () => {
+            const name = prompt("Dê um nome para esta sequência:", `Sequência ${new Date().toLocaleTimeString('pt-BR')}`);
+            if (name === null) return; // Cancelado
+
+            const finalName = name.trim() === "" ? `Seq_${Date.now()}` : name;
+            saveSequence(finalName, [...currentQueue]);
+        });
+
+        // --- SISTEMA DE BIBLIOTECA (LOCAL STORAGE) ---
+        function saveSequence(name, commands) {
+            let library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
+            const newSeq = {
+                id: 'seq_' + Date.now(),
+                name: name,
+                commands: commands,
+                date: new Date().toISOString()
+            };
+            library.unshift(newSeq);
+            localStorage.setItem('stepper_library', JSON.stringify(library));
+            showToast(`Sequência "${name}" salva com sucesso!`, "success");
+        }
+
+        function deleteSequence(id) {
+            let library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
+            library = library.filter(s => s.id !== id);
+            localStorage.setItem('stepper_library', JSON.stringify(library));
+            renderLibrary();
+            showToast("Sequência removida.", "warning");
+        }
+
+        let openAccordionId = null; // Estado UX para manter accordion aberto
+
+        function toggleAccordion(id, event) {
+            // Se clicar nos botões de ação ou inputs, não fecha/abre
+            if (event && (event.target.closest('button') || event.target.tagName === 'INPUT')) return; 
+            
+            if (openAccordionId === id) {
+                openAccordionId = null;
+            } else {
+                openAccordionId = id;
+            }
+            renderLibrary();
+        }
+
+        function renderLibrary() {
+            const list = document.getElementById('library-list');
+            const empty = document.getElementById('library-empty');
+            const library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
+
+            if (library.length === 0) {
+                list.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            list.classList.remove('hidden');
+            list.innerHTML = '';
+
+            library.forEach(seq => {
+                const itemContainer = document.createElement('div');
+                itemContainer.className = "bg-white rounded-2xl border border-slate-200 hover:border-blue-200 transition-colors flex flex-col overflow-hidden";
+                
+                const isOpen = openAccordionId === seq.id;
+
+                let commandsHTML = '';
+                if (isOpen) {
+                    commandsHTML = '<div class="bg-slate-50/70 border-t border-slate-100 p-2.5 flex flex-col gap-1.5 shadow-inner transition-all">';
+                    seq.commands.forEach((cmd, idx) => {
+                        commandsHTML += `
+                            <div class="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm group/line" id="line-container-${seq.id}-${idx}">
+                                <div class="font-mono text-[13px] text-slate-600 flex-1 flex items-center pr-2" id="line-display-${seq.id}-${idx}">
+                                    <span class="text-[10px] text-slate-400 w-6 inline-block select-none">[${idx}]</span>
+                                    <span class="line-content tracking-wide">${cmd}</span>
+                                </div>
+                                <div class="hidden flex-1" id="line-edit-${seq.id}-${idx}">
+                                    <div class="flex items-center w-full relative">
+                                        <span class="text-[10px] text-slate-400 w-6 inline-block select-none absolute left-0 bg-slate-50 h-full flex items-center pl-1 rounded-l text-center border-r border-slate-200 z-10">[${idx}]</span>
+                                        <input type="text" id="input-${seq.id}-${idx}" value="${cmd}" class="w-full text-[13px] font-mono pl-7 pr-2 py-1 border border-blue-400 rounded focus-visible:ring-2 focus-visible:ring-blue-200 outline-none shadow-inner" onkeydown="handleLineKeydown(event, '${seq.id}', ${idx})" onblur="cancelLineEdit('${seq.id}', ${idx})">
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1 opacity-40 md:opacity-0 group-hover/line:opacity-100 transition-opacity ml-2" id="line-actions-${seq.id}-${idx}">
+                                    <button onclick="startLineEdit(event, '${seq.id}', ${idx})" class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 outline-none" title="Editar Linha H8P">
+                                        <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    </button>
+                                    <button onclick="deleteSeqLine(event, '${seq.id}', ${idx})" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 outline-none" title="Remover Linha">
+                                        <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                                <div class="hidden items-center gap-1 ml-2" id="line-save-${seq.id}-${idx}">
+                                    <button onmousedown="saveLineEdit(event, '${seq.id}', ${idx})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium text-xs px-2 focus-visible:ring-2 focus-visible:ring-blue-500 outline-none" title="Salvar Alterações">
+                                        Salvar
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    commandsHTML += '</div>';
+                }
+
+                itemContainer.innerHTML = `
+                    <div class="p-4 flex justify-between items-center cursor-pointer group/item hover:bg-slate-50/50 transition-colors ${isOpen ? 'bg-slate-50/30' : ''}" onclick="toggleAccordion('${seq.id}', event)">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <svg aria-hidden="true" class="w-4 h-4 text-slate-400 transform transition-transform duration-200 ${isOpen ? 'rotate-90 text-blue-500' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                ${seq.name}
+                            </span>
+                            <span class="text-[10px] font-mono text-slate-500 mt-1 uppercase pl-6">${seq.commands.length} instrução(ões) • ${new Date(seq.date).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        <div class="flex items-center gap-2 pl-4">
+                            <button onclick="loadTargetSequence('${seq.id}')" class="p-2.5 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-600 hover:text-white transition transform active:scale-90 shadow-sm focus-visible:ring-2 focus-visible:ring-sky-500 outline-none" title="Carregar na Placa">
+                                <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            </button>
+                            <button onclick="deleteSequence('${seq.id}')" class="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 outline-none" title="Excluir Conjunto Completo">
+                                <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    ${commandsHTML}
+                `;
+                list.appendChild(itemContainer);
+            });
+        }
+
+        // --- SISTEMA DE EDIÇÃO INLINE ---
+        function deleteSeqLine(event, seqId, idx) {
+            event.stopPropagation();
+            let library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
+            const seqIndex = library.findIndex(s => s.id === seqId);
+            if (seqIndex > -1) {
+                library[seqIndex].commands.splice(idx, 1);
+                
+                // Se o conjunto de movimentos esvaziou, revoga a sequência
+                if (library[seqIndex].commands.length === 0) {
+                    library.splice(seqIndex, 1);
+                    openAccordionId = null;
+                    showToast("Sequência auto-removida por falta de instruções.", "info");
+                } else {
+                    showToast(`Linha [${idx}] removida da biblioteca.`, "warning");
+                }
+                
+                localStorage.setItem('stepper_library', JSON.stringify(library));
+                renderLibrary();
+            }
+        }
+
+        function startLineEdit(event, seqId, idx) {
+            event.stopPropagation();
+            document.getElementById(`line-display-${seqId}-${idx}`).classList.add('hidden');
+            document.getElementById(`line-actions-${seqId}-${idx}`).classList.add('hidden');
+            document.getElementById(`line-actions-${seqId}-${idx}`).classList.remove('flex');
+            
+            document.getElementById(`line-edit-${seqId}-${idx}`).classList.remove('hidden');
+            document.getElementById(`line-edit-${seqId}-${idx}`).classList.add('flex');
+            document.getElementById(`line-save-${seqId}-${idx}`).classList.remove('hidden');
+            document.getElementById(`line-save-${seqId}-${idx}`).classList.add('flex');
+            
+            const input = document.getElementById(`input-${seqId}-${idx}`);
+            input.focus();
+            
+            // Move cursor para o final (Truque JS)
+            const val = input.value;
+            input.value = '';
+            input.value = val;
+        }
+
+        function cancelLineEdit(seqId, idx) {
+            setTimeout(() => {
+                const display = document.getElementById(`line-display-${seqId}-${idx}`);
+                if (!display) return; // Se a DOM redesenhou antes, ignora
+                
+                display.classList.remove('hidden');
+                document.getElementById(`line-actions-${seqId}-${idx}`).classList.remove('hidden');
+                document.getElementById(`line-actions-${seqId}-${idx}`).classList.add('flex');
+                
+                document.getElementById(`line-edit-${seqId}-${idx}`).classList.add('hidden');
+                document.getElementById(`line-edit-${seqId}-${idx}`).classList.remove('flex');
+                document.getElementById(`line-save-${seqId}-${idx}`).classList.add('hidden');
+                document.getElementById(`line-save-${seqId}-${idx}`).classList.remove('flex');
+            }, 100); // 100ms é o suficiente para não matar o click no onmousedown do btn Save
+        }
+
+        function handleLineKeydown(event, seqId, idx) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                saveLineEdit(event, seqId, idx);
+            } else if (event.key === 'Escape') {
+                cancelLineEdit(seqId, idx);
+            }
+        }
+
+        function saveLineEdit(event, seqId, idx) {
+            if (event) event.stopPropagation();
+            const input = document.getElementById(`input-${seqId}-${idx}`);
+            const newValue = input.value.trim();
+            
+            if (!newValue) {
+                showToast("Erro: O comando interno não pode ser vazio.", "error");
+                input.focus();
+                return;
+            }
+            
+            let library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
+            const seqIndex = library.findIndex(s => s.id === seqId);
+            if (seqIndex > -1) {
+                library[seqIndex].commands[idx] = newValue;
+                localStorage.setItem('stepper_library', JSON.stringify(library));
+                renderLibrary();
+                showToast(`Sintaxe da linha [${idx}] salva via Editor Inline.`, "success");
+            }
+        }
+
+        async function loadTargetSequence(id) {
+            const library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
+            const seq = library.find(s => s.id === id);
+            if (!seq) return;
+
+            if (!port) {
+                showToast("Conecte o hardware antes de carregar a biblioteca.", "error");
+                return;
+            }
+
+            toggleLibraryModal(false);
+            showToast(`📥 Carregando manobra: ${seq.name}...`, "info");
+            
+            // Lógica de envio sequencial seguro (Apenas LOAD, sem RUN)
+            for (const cmd of seq.commands) {
+                await sendCommand(cmd);
+                currentQueue.push(cmd);
+                await new Promise(r => setTimeout(r, 150)); // Delay extra para garantir estabilidade de buffer
+            }
+            updateQueueButtons();
+            showToast("✅ Sequência carregada na memória com sucesso. Aguardando comando RUN.", "success");
+        }
+
+        // Modal Handlers
+        const modal = document.getElementById('modal-library');
+        function toggleLibraryModal(show) {
+            if (show) {
+                renderLibrary();
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            } else {
+                modal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        }
+
+        document.getElementById('btn-library').addEventListener('click', () => toggleLibraryModal(true));
+        document.getElementById('btn-close-modal').addEventListener('click', () => toggleLibraryModal(false));
+        document.getElementById('modal-overlay').addEventListener('click', () => toggleLibraryModal(false));
+        document.getElementById('btn-clear-all-library').addEventListener('click', () => {
+            if(confirm("Tem certeza que deseja apagar TODA a biblioteca?")) {
+                localStorage.removeItem('stepper_library');
+                renderLibrary();
+                showToast("Biblioteca resetada.", "error");
             }
         });
 
