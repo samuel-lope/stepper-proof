@@ -1,0 +1,15 @@
+# Stepper Proof (AVR + Web Serial)
+> Controle de alta precisão para motor de passo TB6600 via Web Serial API.
+
+## Core Files
+- [stepcontrol/stepcontrol.ino]: Firmware principal em C++/AVR. Gerencia Timer1 e pulsos em microsegundos.
+- [webinterface/index.html]: Interface de controle (Vanilla JS). Implementa Web Serial e Protocolo H8P.
+- [docs/INTEGRATION.md]: Especificação do protocolo hexadecimal e fluxos de dados.
+
+## Key Concepts
+- **Protocolo H8P**: Comunicação via chaves hexadecimais (ex: 10, 11, 01) para economia de SRAM.
+- **Timer1 CTC**: Geração de pulsos via hardware (jitter-free) no Arduino.
+- **Segurança Atômica**: Proteção de interrupções (`cli`/`sei`) em comandos críticos e *Safety Clamp* de 50µs.
+- **Web Serial**: Comunicação direta navegador-hardware sem drivers intermediários.
+- **Queue System**: Fila de até 20 comandos de movimento persistida no microcontrolador.
+- **Live Telemetry**: Monitoramento reativo de SRAM e Line State via sinais hexadecimais passivos.

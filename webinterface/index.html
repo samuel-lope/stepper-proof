@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stepper Control Pro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Fira Sans (UI) & Fira Code (Technical Data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Fira Sans', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151e2e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .toast-enter { animation: slideInX 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .toast-leave { animation: slideOutX 0.3s cubic-bezier(0.4, 0, 1, 1) forwards; }
+        @keyframes slideInX { 
+            0% { transform: translateX(120%); opacity: 0; } 
+            100% { transform: translateX(0); opacity: 1; } 
+        }
+        @keyframes slideOutX { 
+            0% { transform: translateX(0); opacity: 1; } 
+            100% { transform: translateX(120%); opacity: 0; } 
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans selection:bg-blue-100">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm z-10 sticky top-0">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-600/20">
+                <svg aria-hidden="true" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+            </div>
+            <h1 class="text-xl font-semibold tracking-tight text-slate-900">StepperControl Pro</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <select id="baud-rate" name="baud_rate" autocomplete="off" class="bg-slate-50 border border-slate-200 text-sm font-medium rounded-lg py-2 pl-3 pr-8 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none outline-none cursor-pointer transition hover:bg-slate-100 text-slate-700 font-variant-numeric-tabular-nums">
+                <option value="9600">9600 bps</option>
+                <option value="115200" selected>115200 bps</option>
+            </select>
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-inner">
+                <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] transition-colors duration-300"></div>
+                <span id="conn-status" class="text-[11px] font-bold text-slate-500 uppercase tracking-wider transition-colors duration-300">Offline</span>
+            </div>
+            <button id="btn-connect" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg shadow-sm shadow-blue-600/20 transition cursor-pointer transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 focus-visible:outline-none">
+                Conectar Hardware
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Board -->
+    <main class="flex-1 w-full max-w-7xl mx-auto p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Left Column: Command & Settings Builder -->
+        <section class="lg:col-span-8 flex flex-col gap-6">
+            
+            <!-- Command Builder Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden group">
+                <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-base font-semibold text-slate-800">Novo Comando de Movimento</h2>
+                        <p class="text-sm text-slate-500 mt-0.5">Configure os parâmetros técnicos para inserir na fila do microcontrolador.</p>
+                    </div>
+                    <span class="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-mono font-medium rounded-md border border-blue-100 hidden md:block">H8P Protocol</span>
+                </div>
+                
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        <!-- Inputs Grid -->
+                        <div class="space-y-1.5">
+                            <label for="inp-step" class="text-sm font-medium text-slate-700 flex justify-between">
+                                Quantidade de Passos
+                                <span class="text-[10px] font-normal text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">Key: 10</span>
+                            </label>
+                            <input type="number" id="inp-step" name="inp_step" autocomplete="off" spellcheck="false" value="1600" min="1" class="w-full font-mono tabular-nums text-sm px-4 py-2.5 rounded-lg border border-slate-300 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 outline-none transition shadow-sm">
+                        </div>
+                        
+                        <div class="space-y-1.5">
+                            <label for="inp-vel" class="text-sm font-medium text-slate-700 flex justify-between">
+                                Intervalo do Pulso (µs)
+                                <span class="text-[10px] font-normal text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">Key: 11</span>
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="inp-vel" name="inp_vel" autocomplete="off" spellcheck="false" value="500" min="50" class="w-full font-mono tabular-nums text-sm pl-4 pr-12 py-2.5 rounded-lg border border-slate-300 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 outline-none transition shadow-sm">
+                                <span class="absolute right-3 top-2.5 text-xs font-medium text-slate-400" aria-hidden="true">MIN 50</span>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-1.5">
+                            <label for="inp-dir" class="text-sm font-medium text-slate-700 flex justify-between">
+                                Direção Física
+                                <span class="text-[10px] font-normal text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">Key: 12</span>
+                            </label>
+                            <select id="inp-dir" name="inp_dir" autocomplete="off" class="w-full font-mono text-sm px-4 py-2.5 rounded-lg border border-slate-300 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 outline-none bg-white cursor-pointer transition shadow-sm appearance-none">
+                                <option value="1">1 (Sentido A - Avanço)</option>
+                                <option value="0">0 (Sentido B - Recuo)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="space-y-1.5">
+                            <label for="inp-repeat" class="text-sm font-medium text-slate-700 flex justify-between">
+                                Ciclos de Repetição
+                                <span class="text-[10px] font-normal text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">Key: 13</span>
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="inp-repeat" name="inp_repeat" autocomplete="off" spellcheck="false" value="1" min="0" title="0 para infinito" class="w-full font-mono tabular-nums text-sm pl-4 pr-12 py-2.5 rounded-lg border border-slate-300 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 outline-none transition shadow-sm">
+                                <span class="absolute right-3 top-2.5 text-xs font-medium text-slate-400" aria-hidden="true">0=INF</span>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 space-y-1.5">
+                            <label for="inp-pause" class="text-sm font-medium text-slate-700 flex justify-between">
+                                Pausa Pós-Execução
+                                <span class="text-[10px] font-normal text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">Key: 14</span>
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="inp-pause" name="inp_pause" autocomplete="off" spellcheck="false" placeholder="Ex: 500 (Opcional)" min="0" class="w-full font-mono tabular-nums text-sm pl-4 pr-12 py-2.5 rounded-lg border border-slate-300 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 outline-none transition shadow-sm">
+                                <span class="absolute right-4 top-2.5 text-sm font-medium text-slate-400" aria-hidden="true">ms</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                    <button id="btn-add-cmd" disabled class="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-2 transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-800 focus-visible:outline-none">
+                        <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        Push to Array
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Global Configuration Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg aria-hidden="true" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <h3 class="text-sm font-semibold text-slate-800">Pausa Global (Key 04)</h3>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4 h-8">Delay fixo injetado automaticamente entre todas as linhas da fila do motor.</p>
+                        <div class="flex gap-2">
+                            <input type="number" aria-label="Tempo de pausa global" name="inp_global_pause" autocomplete="off" spellcheck="false" id="inp-global-pause" placeholder="Ex: 1000" class="w-full tabular-nums font-mono text-sm px-3 py-2 rounded-lg border border-slate-300 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 outline-none transition shadow-sm">
+                            <button id="btn-set-pause" disabled class="disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300 shadow-sm cursor-pointer whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus-visible:outline-none">Aplicar</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg aria-hidden="true" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <h3 class="text-sm font-semibold text-slate-800">Mestre de Loop (Key 03)</h3>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4 h-8">Sobrescreve a fila para reiniciar do zero infinitamente após finalizar.</p>
+                        <button id="btn-repeat-all" disabled class="w-full disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-slate-300 shadow-sm cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-slate-400 focus-visible:outline-none">
+                            <span class="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-blue-500 transition-colors" id="loop-dot" aria-hidden="true"></span>
+                            Ativar RepeatAll Fila
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Right Column: Massive Action Controls -->
+        <section class="lg:col-span-4 flex flex-col gap-4 sticky top-24">
+            
+            <!-- Live Telemetry Card -->
+            <div class="bg-gradient-to-tr from-slate-800 to-slate-900 p-5 rounded-2xl shadow-lg shadow-slate-900/10 border border-slate-700/60 flex flex-col mb-1">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="flex h-2.5 w-2.5 relative">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </div>
+                    <h3 class="text-xs font-bold text-slate-100 uppercase tracking-widest">Live Telemetry</h3>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/50">
+                        <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Memória SRAM</span>
+                        <div class="flex items-baseline gap-1 text-slate-100">
+                            <span class="text-2xl font-mono" id="tel-queue">0</span>
+                            <span class="text-xs font-medium text-slate-500">/ 20</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/50 flex flex-col justify-center overflow-hidden">
+                        <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Motor State</span>
+                        <div class="flex items-center mt-0.5">
+                            <span class="text-[13px] font-mono text-slate-400 truncate" id="tel-state">Standby</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1 px-1 mt-1">Painel Hardware</h2>
+            
+            <button id="btn-run" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-500 hover:bg-emerald-600 border border-emerald-600 text-white font-semibold py-8 px-4 rounded-2xl shadow-[0_8px_16px_rgba(16,185,129,0.2)] transition transform active:scale-[98%] cursor-pointer flex flex-col items-center justify-center gap-3 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:outline-none">
+                <div class="bg-white/20 p-3 rounded-full group-hover:scale-110 transition-transform">
+                    <svg aria-hidden="true" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-lg tracking-wide">EXECUTE ALL</span>
+                    <span class="text-[10px] font-mono text-emerald-100/80 mt-1 uppercase" aria-hidden="true">Hex Cmd: 01</span>
+                </div>
+            </button>
+            
+            <button id="btn-stop" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-rose-500 hover:bg-rose-600 border border-rose-600 text-white font-semibold py-8 px-4 rounded-2xl shadow-[0_8px_16px_rgba(244,63,94,0.2)] transition transform active:scale-[98%] cursor-pointer flex flex-col items-center justify-center gap-3 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 focus-visible:outline-none">
+                <div class="bg-white/20 p-3 rounded-full group-hover:scale-110 transition-transform">
+                    <svg aria-hidden="true" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-lg tracking-wide">EMERGENCY STOP</span>
+                    <span class="text-[10px] font-mono text-rose-100/80 mt-1 uppercase" aria-hidden="true">Atomic Cmd: 02</span>
+                </div>
+            </button>
+
+            <div class="relative mt-2 mb-1">
+                <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div class="w-full border-t border-slate-200"></div>
+                </div>
+                <div class="relative flex justify-center">
+                    <span class="bg-slate-50 px-3 text-xs font-medium text-slate-400">Quick Debug</span>
+                </div>
+            </div>
+            
+            <button id="btn-run-one" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-sky-600 font-medium py-3.5 px-4 rounded-xl shadow-sm transition transform active:scale-[98%] cursor-pointer flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none">
+                <svg aria-hidden="true" class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span class="text-sm">Disparar Passo Único</span>
+            </button>
+        </section>
+
+    </main>
+
+    <!-- Toasts Analytics (Substitui o Terminal Antigo) -->
+    <div id="toast-container" aria-live="polite" aria-atomic="true" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 items-end pointer-events-none"></div>
+
+    <!-- Interface Logic -->
+    <script>
+        // Web Serial API Params
+        let port;
+        let reader;
+        let writer;
+        let keepReading = true;
+        let lastCommandSent = "";
+
+        // UI Element Hooks
+        const btnConnect = document.getElementById('btn-connect');
+        const statusBadge = document.getElementById('conn-status');
+        const statusDot = document.getElementById('status-dot');
+        const baudRateSelect = document.getElementById('baud-rate');
+        
+        const controls = [
+            'btn-add-cmd', 'btn-run', 'btn-stop', 'btn-run-one',
+            'btn-set-pause', 'btn-repeat-all'
+        ].map(id => document.getElementById(id));
+
+        // Dicionário do Arduino
+        const hexResponses = {
+            "A0": { text: "🔗 [AVR Status]: Hardware pareado. Timer1 sincronizado a 16MHz.", type: "success" },
+            "B0": { text: "⚙️ [Execução]: Fila mestre iniciada. Despachando pulsos para o Driver TB6600.", type: "info" },
+            "B1": { text: "🛡️ [Emergency]: Interrupções cortadas atomicamente. Motores destravados e memória RAM limpa.", type: "warning" },
+            "B4": { text: "🔁 [Force Loop]: O firmware repetirá esta fila de movimentos em laço infinito.", type: "info" },
+            "B5": { text: "✅ [Finalizado]: O lote de instruções foi concluído com exito. Motor em Standby.", type: "success" },
+            "E0": { text: "🚫 [Operação Negada]: O motor já está executando uma manobra ativa. Aguarde ou dispare um STOP.", type: "error" },
+            "E1": { text: "⚠️ [Buffer Vazio]: A fila do MCU está ociosa. Injete um pacote de comandos antes de dar RUN.", type: "error" },
+            "E2": { text: "🔴 [Overflow]: A SRAM atingiu o limite seguro (20 slots). Dispare um STOP (02) para limpar o buffer de memória.", type: "error" },
+            "E3": { text: "🛑 [Safety Clamp Ativo]: Rejeitado! O intervalo inserido causará congelamento. Minimum = 50µs.", type: "error" }
+        };
+
+        // UI-UX PRO MAX: Sistema de Notificações Não-intrusivas (Substituição do Terminal CSS)
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let icon = '';
+            let colors = '';
+            let duration = 4000;
+            
+            if (type === 'success') {
+                colors = 'bg-slate-800 border-l-4 border-emerald-500 shadow-lg shadow-emerald-500/10';
+                icon = `<svg aria-hidden="true" class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+            } else if (type === 'error') {
+                colors = 'bg-rose-50 border-l-4 border-rose-500 shadow-lg shadow-rose-500/10 text-rose-800';
+                icon = `<svg aria-hidden="true" class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                duration = 8000; // Erros ganham permanência
+            } else if (type === 'warning') {
+                colors = 'bg-amber-50 border-l-4 border-amber-500 shadow-lg shadow-amber-500/10 text-amber-800';
+                icon = `<svg aria-hidden="true" class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+            } else if (type === 'out') {
+                colors = 'bg-slate-800 text-slate-300 shadow-lg border border-slate-700/50';
+                icon = `<svg aria-hidden="true" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>`;
+                duration = 3000;
+            } else {
+                colors = 'bg-slate-800 text-slate-100 shadow-lg shadow-blue-500/10 border-l-4 border-blue-500';
+                icon = `<svg aria-hidden="true" class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+            }
+
+            toast.className = `toast-enter pointer-events-auto rounded-xl p-4 font-mono text-sm flex items-start gap-3 backdrop-blur-md max-w-sm w-full ${colors}`;
+            
+            let textStyles = type === 'out' ? 'font-mono text-[13px] opacity-80' : 'font-sans font-medium text-[14px]';
+            
+            toast.innerHTML = `
+                <div class="flex-shrink-0 mt-0.5">${icon}</div>
+                <div class="flex-1 pt-0.5">
+                    <p class="${textStyles} leading-tight">${message}</p>
+                </div>
+                <button class="flex-shrink-0 ml-4 hover:opacity-75 transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:outline-none" onclick="this.parentElement.remove()" aria-label="Close">
+                    <svg aria-hidden="true" class="w-4 h-4 ${type==='error' || type==='warning' ? 'text-current' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                if(toast.parentElement) {
+                    toast.classList.replace('toast-enter', 'toast-leave');
+                    toast.addEventListener('animationend', () => toast.remove());
+                }
+            }, duration);
+        }
+
+        // --- MANUSEIO DA SERIAL ---
+        btnConnect.addEventListener('click', async () => {
+            if (port) await disconnectSerial();
+            else await connectSerial();
+        });
+
+        async function connectSerial() {
+            try {
+                port = await navigator.serial.requestPort();
+                const selectedBaudRate = parseInt(baudRateSelect.value);
+                await port.open({ baudRate: selectedBaudRate });
+
+                updateUIState(true);
+                showToast(`Hardware Serial pareado (${selectedBaudRate} bps).`, "success");
+
+                keepReading = true;
+                readLoop();
+            } catch (error) {
+                console.error('Erro de conexão:', error);
+                showToast(`Falha WebSerial: ${error.message}`, "error");
+            }
+        }
+
+        async function disconnectSerial() {
+            keepReading = false;
+            if (reader) await reader.cancel();
+            if (port) {
+                await port.close();
+                port = null;
+            }
+            updateUIState(false);
+            showToast("Placa Arduino desconectada com segurança.", "warning");
+        }
+
+        function updateUIState(connected) {
+            controls.forEach(btn => btn.disabled = !connected);
+            baudRateSelect.disabled = connected;
+            
+            if (connected) {
+                btnConnect.textContent = "Desconectar";
+                btnConnect.classList.replace("bg-blue-600", "bg-rose-50");
+                btnConnect.classList.replace("hover:bg-blue-700", "hover:bg-rose-100");
+                btnConnect.classList.replace("text-white", "text-rose-600");
+                
+                statusBadge.textContent = "Conectado";
+                statusBadge.classList.replace("text-slate-500", "text-emerald-600");
+                
+                statusDot.classList.replace("bg-rose-500", "bg-emerald-500");
+                statusDot.classList.replace("shadow-[0_0_8px_rgba(244,63,94,0.6)]", "shadow-[0_0_8px_rgba(16,185,129,0.7)]");
+                
+                document.getElementById('btn-run-one').disabled = lastCommandSent === "";
+            } else {
+                btnConnect.textContent = "Conectar Hardware";
+                btnConnect.classList.replace("bg-rose-50", "bg-blue-600");
+                btnConnect.classList.replace("hover:bg-rose-100", "hover:bg-blue-700");
+                btnConnect.classList.replace("text-rose-600", "text-white");
+                
+                statusBadge.textContent = "Offline";
+                statusBadge.classList.replace("text-emerald-600", "text-slate-500");
+                
+                statusDot.classList.replace("bg-emerald-500", "bg-rose-500");
+                statusDot.classList.replace("shadow-[0_0_8px_rgba(16,185,129,0.7)]", "shadow-[0_0_8px_rgba(244,63,94,0.6)]");
+            }
+        }
+
+        function translateIncomingHex(line) {
+            line = line.trim();
+            if (!line) return null;
+
+            // --- PARSER DE TELEMETRIA SILENCIOSA ---
+            if (line.startsWith("C1:")) { // RAM Load Update
+                document.getElementById('tel-queue').textContent = line.substring(3);
+                return null; // Não gera Toast, apenas atualiza UI
+            }
+            if (line.startsWith("D0:")) { // Active Line Update
+                const slot = line.substring(3);
+                const st = document.getElementById('tel-state');
+                st.textContent = `Exec L[${slot}]`;
+                st.className = "text-[13px] font-mono text-cyan-400 font-semibold truncate";
+                return null;
+            }
+            if (line.startsWith("B3:")) { // Pause Update
+                const pTime = line.substring(3);
+                const st = document.getElementById('tel-state');
+                st.textContent = `Delay ${pTime}ms`;
+                st.className = "text-[13px] font-mono text-amber-400 animate-pulse truncate";
+                return null; 
+            }
+
+            // Fallback Responses Visuais (Toasts)
+            if (hexResponses[line]) {
+                // Hook para resetar painel na interface no ciclo de vida
+                if(line === "B1" || line === "B5" || line === "A0") {
+                    const st = document.getElementById('tel-state');
+                    st.textContent = "Standby";
+                    st.className = "text-[13px] font-mono text-slate-400 truncate";
+                    if (line === "B1" || line === "A0") document.getElementById('tel-queue').textContent = "0";
+                }
+                return hexResponses[line];
+            }
+
+            if (line.startsWith("B2:")) 
+                return { text: `⏳ [Delay Handler]: Modificador Global de Pausas injetado para ${line.substring(3)}ms fixos.`, type: "info" };
+
+            if (line.startsWith("C0:")) {
+                const parts = line.split(',');
+                let idx = parts[0].split(':')[1];
+                let details = [];
+                for (let i = 1; i < parts.length; i++) {
+                    const [key, val] = parts[i].split(':');
+                    if (key === "10") details.push(`${val} Passos`);
+                    if (key === "11") details.push(`${val}µs int.`);
+                    if (key === "12") details.push(val==='1'?'[FWD]':'[REV]');
+                }
+                return { text: `💾 [Alocado]: Slot N° ${idx} gravado na RAM -> (${details.join(' | ')})`, type: "success" };
+            }
+
+            return { text: `RAW_HW > ${line}`, type: "info" };
+        }
+
+        async function readLoop() {
+            let lineBuffer = "";
+            while (port && port.readable && keepReading) {
+                const textDecoder = new TextDecoderStream();
+                const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                reader = textDecoder.readable.getReader();
+
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        if (value) {
+                            lineBuffer += value;
+                            let newlineIndex;
+                            while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
+                                let completeLine = lineBuffer.slice(0, newlineIndex).replace('\r', '');
+                                lineBuffer = lineBuffer.slice(newlineIndex + 1);
+
+                                if (completeLine) {
+                                    let translated = translateIncomingHex(completeLine);
+                                    if(translated) showToast(translated.text, translated.type);
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error("Reader Halt:", error);
+                } finally {
+                    reader.releaseLock();
+                }
+            }
+        }
+
+        async function sendRawString(commandString) {
+            if (!port || !port.writable) return false;
+            const textEncoder = new TextEncoderStream();
+            const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+            writer = textEncoder.writable.getWriter();
+
+            await writer.write(commandString + "\n");
+            await writer.close();
+
+            // Decoradores de output para UI
+            let displayCmd = commandString;
+            if(commandString === "01") displayCmd = "Injetado Sinal: 01 [EXECUTAR FILA INTEIRA]";
+            else if(commandString === "02") displayCmd = "Injetado Sinal: 02 [CORTE DE EMERGÊNCIA]";
+            else if(commandString === "03") displayCmd = "Injetado Sinal: 03 [FECHAR CIRCUITO EM LOOP]";
+            else if(commandString.startsWith("04:")) displayCmd = commandString.replace("04:", "Injetado Sinal: 04 [SUBRESCREVER PAUSA GLOBAL -> ") + "ms]";
+            else if(commandString.startsWith("10:")) {
+                let parts = commandString.split(",");
+                displayCmd = `Enviando pacote Hex H8P… [${parts[0]}, ${parts[1]}]`;
+            }
+            showToast(`TX > ${displayCmd}`, "out");
+            return true;
+        }
+
+        async function sendCommand(commandString) {
+            if (await sendRawString(commandString)) {
+                await new Promise(r => setTimeout(r, 60)); // Microdelay de tráfego
+            } else {
+                showToast("Conexão I/O ausente.", "error");
+            }
+        }
+
+        // --- ENGENHARIA DE COMANDOS ---
+        function buildCommandFromInputs() {
+            const step = document.getElementById('inp-step').value;
+            const vel = document.getElementById('inp-vel').value;
+            const dir = document.getElementById('inp-dir').value;
+            const repeat = document.getElementById('inp-repeat').value;
+            const pause = document.getElementById('inp-pause').value;
+
+            if (!step || !vel || vel < 50) {
+                showToast("Erro: O firmware rejeitará. Velocity mínimo = 50µs.", "error");
+                const velInp = document.getElementById('inp-vel');
+                velInp.classList.add('border-rose-500', 'ring-rose-500', 'ring-2');
+                setTimeout(() => velInp.classList.remove('border-rose-500', 'ring-rose-500', 'ring-2'), 2500);
+                return null;
+            }
+
+            let cmd = `10:${step},11:${vel},12:${dir},13:${repeat}`;
+            if (pause && pause.trim() !== "") cmd += `,14:${pause}`;
+            return cmd;
+        }
+
+        // Triggers UI
+        document.getElementById('btn-add-cmd').addEventListener('click', () => {
+            const cmd = buildCommandFromInputs();
+            if (cmd) {
+                lastCommandSent = cmd;
+                document.getElementById('btn-run-one').disabled = false;
+                sendCommand(cmd);
+            }
+        });
+
+        document.getElementById('btn-run-one').addEventListener('click', async () => {
+            const cmd = buildCommandFromInputs();
+            if (cmd) {
+                await sendCommand("02"); // STOP
+                await sendCommand(cmd);  // LOAD
+                await sendCommand("01"); // RUN
+                lastCommandSent = cmd;
+            }
+        });
+
+        document.getElementById('btn-run').addEventListener('click', () => sendCommand("01"));
+        document.getElementById('btn-stop').addEventListener('click', () => sendCommand("02"));
+        
+        // Customização de UI para o botão Repeat All
+        let repeatOn = false;
+        document.getElementById('btn-repeat-all').addEventListener('click', () => {
+             repeatOn = !repeatOn;
+             const dot = document.getElementById('loop-dot');
+             if(repeatOn) {
+                 dot.classList.replace('bg-slate-300', 'bg-blue-500');
+                 sendCommand("03"); 
+             } else {
+                 dot.classList.replace('bg-blue-500', 'bg-slate-300');
+                 showToast("Modo Mestre revogado localmente. Fila terminará na base.", "info");
+                 // Nota: O firmware atual lida com o modo repeatAll, nao criamos codigo para desativa-lo.
+                 // Mas a interacao UI responde.
+             }
+        });
+
+        document.getElementById('btn-set-pause').addEventListener('click', () => {
+            const pGlobal = document.getElementById('inp-global-pause').value;
+            if (pGlobal !== "") sendCommand(`04:${pGlobal}`);
+        });
+    </script>
+</body>
+</html>
