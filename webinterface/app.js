@@ -41,21 +41,21 @@
             let duration = 4000;
             
             if (type === 'success') {
-                colors = 'bg-slate-800 border-l-4 border-emerald-500 shadow-lg shadow-emerald-500/10';
+                colors = 'bg-slate-800 border border-slate-700/50 border-l-4 border-l-emerald-500 shadow-xl shadow-slate-900/20 text-slate-100';
                 icon = `<svg aria-hidden="true" class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
             } else if (type === 'error') {
-                colors = 'bg-rose-50 border-l-4 border-rose-500 shadow-lg shadow-rose-500/10 text-rose-800';
+                colors = 'bg-white border border-rose-100 border-l-4 border-l-rose-500 shadow-xl shadow-rose-500/10 text-slate-800';
                 icon = `<svg aria-hidden="true" class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
                 duration = 8000; // Erros ganham permanência
             } else if (type === 'warning') {
-                colors = 'bg-amber-50 border-l-4 border-amber-500 shadow-lg shadow-amber-500/10 text-amber-800';
+                colors = 'bg-white border border-amber-100 border-l-4 border-l-amber-500 shadow-xl shadow-amber-500/10 text-slate-800';
                 icon = `<svg aria-hidden="true" class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
             } else if (type === 'out') {
                 colors = 'bg-slate-800 text-slate-300 shadow-lg border border-slate-700/50';
                 icon = `<svg aria-hidden="true" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>`;
                 duration = 3000;
             } else {
-                colors = 'bg-slate-800 text-slate-100 shadow-lg shadow-blue-500/10 border-l-4 border-blue-500';
+                colors = 'bg-slate-800 text-slate-100 border border-slate-700/50 border-l-4 border-l-blue-500 shadow-xl shadow-slate-900/20';
                 icon = `<svg aria-hidden="true" class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
             }
 
