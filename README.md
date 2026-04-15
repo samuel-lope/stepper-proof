@@ -1,105 +1,147 @@
-# ⚙️ Controle de Motor de Passo TB6600 (AVR + Web Serial API)
+# ⚙️ Controle Dual de Motores de Passo TB6600 (AVR + Web Serial API)
 
-Este projeto oferece um sistema de controle de alta precisão para motores de passo utilizando o driver **TB6600** e um microcontrolador **ATmega328P** (Arduino Uno/Nano). 
+Este projeto oferece um sistema de controle de **alta precisão e dois canais independentes** para motores de passo, utilizando dois drivers **TB6600** e um microcontrolador **ATmega328P** (Arduino Uno/Nano).
 
-O sistema é gerenciado por uma interface web moderna que se comunica diretamente com a placa via USB usando a **Web Serial API**, eliminando a necessidade de instalar softwares adicionais no computador.
+O sistema é gerenciado por uma interface web moderna que se comunica diretamente com a placa via USB usando a **Web Serial API**, eliminando a necessidade de instalar softwares adicionais.
 
 ---
 
 ## ✨ Características Principais
 
-*   **Alta Precisão (Jitter-Free):** Utiliza o Timer1 (16-bits) em modo CTC e *Port Manipulation* nativa do AVR para alternar os pinos em exatos 62,5 nanossegundos, ignorando a latência do `digitalWrite()`.
-*   **Zero Bloqueio (Non-blocking):** A rotina principal (`loop()`) roda livremente utilizando uma máquina de estados. Não há uso de `delay()`, permitindo fila de comandos e processamento contínuo em background.
-*   **Segurança de Hardware (Atomic & Safe):** Operações críticas como o `STOP` são executadas em blocos atômicos. Inclui um *Safety Clamp* de 50µs para evitar o travamento do microcontrolador por hardware.
-*   **Extrema Otimização de Memória:** O protocolo de comunicação foi inteiramente escrito em código Hexadecimal de 8-bits. Zero strings são armazenadas na memória SRAM do microcontrolador.
-*   **Interface Web Profissional:** Dashboard reconstruída com Tailwind CSS, apresentando um design "Técnico Minimalista" com alta densidade de informação e zero poluição visual.
-*   **Telemetria em Tempo Real:** Painel "Live Telemetry" que monitora o uso da memória SRAM do Arduino e o estado exato da execução mecânica (Linhas/Delays) sem atrasos.
-*   **Notificações Inteligentes:** Sistema de *Toasts* que substitui o terminal clássico, classificando alertas por nível de criticidade (Sucesso, Info, Warning, Erro).
-*   **Controle Mobile-Friendly:** Layout responsivo otimizado para tablets e smartphones via Web Serial.
+- **Dual Motor Independente:** Dois motores controlados simultaneamente via Timer1 Dual-Channel (COMPA + COMPB). Cada motor possui velocidade, direção e fila de movimento completamente independentes.
+- **Alta Precisão (Jitter-Free):** Timer1 de 16 bits em modo *Freerunning* com *Port Manipulation* nativa do AVR. Alternância de pinos em exatos 62,5 ns, sem latência do `digitalWrite()`.
+- **Zero Bloqueio (Non-blocking):** A `loop()` roda livremente via máquina de estados. Sem `delay()`, com processamento paralelo de ambos os motores.
+- **Segurança de Hardware (Atomic & Safe):** `STOP` executado em bloco atômico (`cli`/`sei`). *Safety Clamp* de 50µs previne travamento do MCU.
+- **Otimização de Memória Extrema:** Protocolo H8P inteiramente em hexadecimal de 8 bits — zero strings armazenadas na SRAM.
+- **Interface Web Profissional:** Dashboard com Tailwind CSS, Telemetria ao Vivo por motor (M1 e M2), sistema de Toasts por criticidade e Command Builder visual.
+- **Telemetria em Tempo Real:** Painel dual que monitora SRAM, linha ativa e estado de execução de cada motor individualmente.
 
 ---
 
 ## 🔌 Esquema de Ligação (Hardware)
 
-Conecte o seu Driver TB6600 ao Arduino conforme a tabela abaixo:
+Conecte os dois Drivers TB6600 ao Arduino conforme as tabelas abaixo:
+
+### Motor 1
 
 | Pino Arduino | Registrador AVR | Pino Driver TB6600 | Função |
 | :--- | :--- | :--- | :--- |
 | **D2** | PD2 | **DIR+** | Controle de Direção |
 | **D3** | PD3 | **PUL+** | Trem de Pulsos (Step) |
 | **D8** | PB0 | **ENA+** | Enable (Ativa/Desativa o Driver) |
-| **GND** | - | **DIR-, PUL-, ENA-** | Terra Comum |
+| **GND** | — | **DIR-, PUL-, ENA-** | Terra Comum |
+
+### Motor 2
+
+| Pino Arduino | Registrador AVR | Pino Driver TB6600 | Função |
+| :--- | :--- | :--- | :--- |
+| **D4** | PD4 | **DIR+** | Controle de Direção |
+| **D5** | PD5 | **PUL+** | Trem de Pulsos (Step) |
+| **D7** | PD7 | **ENA+** | Enable (Ativa/Desativa o Driver) |
+| **GND** | — | **DIR-, PUL-, ENA-** | Terra Comum |
 
 > [!NOTE]
-> O driver foi configurado no código com lógica de **Enable invertida**, ou seja, mantido em `LOW` para funcionamento padrão.
+> Os drivers são controlados com lógica de **Enable invertida**: o pino ENA é mantido em `LOW` durante o funcionamento normal para ativar o driver.
 
 ---
 
 ## 🚀 Como Usar
 
 ### 1. Preparando o Microcontrolador
-1.  Abra o arquivo `stepcontrol/stepcontrol.ino` na Arduino IDE.
-2.  Selecione sua placa (Arduino Uno/Nano) e faça o upload.
-3.  Certifique-se de que o Baud Rate do código está em **115200 bps**.
+
+1. Abra `stepcontrol/stepcontrol.ino` na Arduino IDE.
+2. Selecione sua placa (Arduino Uno/Nano) e a porta serial.
+3. Clique em **Upload**.
+4. O firmware comunica a **9600 bps** — certifique-se de que o Monitor Serial ou a interface web estão na mesma velocidade.
 
 ### 2. Rodando a Interface Web
-Como o projeto utiliza a Web Serial API, por motivos de segurança arquitetural dos navegadores, você não pode simplesmente abrir o arquivo com um clique duplo (`file:///`).
 
-1.  **Use um servidor local:** Se estiver no VS Code, instale a extensão **Live Server** e clique em "Go Live" no arquivo `index.html`.
-2.  **Acesse via:** `http://localhost:5500` (ou a porta gerada).
-3.  **Navegador compatível:** Utilize **Google Chrome** ou **Microsoft Edge** (Safari e Firefox não suportam Web Serial API nativamente).
-4.  Clique em **Conectar Serial**, selecione a porta COM/USB do seu Arduino e comece a adicionar comandos na fila!
+A Web Serial API exige um contexto seguro (`https://` ou `localhost`). Não é possível abrir o `index.html` diretamente como `file:///`.
+
+1. No VS Code, instale a extensão **Live Server** e clique em **Go Live** no arquivo `webinterface/index.html`.
+2. Acesse via `http://localhost:5500` (ou a porta gerada).
+3. Use **Google Chrome** ou **Microsoft Edge** — Safari e Firefox não suportam Web Serial API nativamente.
+4. Clique em **Conectar Serial**, selecione a porta do Arduino, escolha o motor alvo e adicione comandos à fila!
 
 ---
 
 ## 🏗️ Arquitetura do Sistema
 
-O projeto é dividido em dois grandes blocos que se comunicam de forma assíncrona:
-
 ```mermaid
 graph LR
     subgraph "Navegador (Frontend)"
         A[index.html] --> B[Web Serial API]
+        A --> UI[Command Builder\nMotor 1 / Motor 2]
     end
     subgraph "Hardware (Backend)"
-        B --> C[ATmega328P]
-        C --> D[Timer1 Hardware]
-        D --> E[Driver TB6600]
-        E --> F[Motor de Passo]
+        B -->|9600 bps| C[ATmega328P]
+        C --> T1A[Timer1 COMPA\nCanal M1]
+        C --> T1B[Timer1 COMPB\nCanal M2]
+        T1A --> D1[Driver TB6600 #1]
+        T1B --> D2[Driver TB6600 #2]
+        D1 --> M1[Motor de Passo 1]
+        D2 --> M2[Motor de Passo 2]
     end
 ```
 
 ---
 
-## 🗄️ Integração e Protocolo (Hexadecimal)
+## 🗄️ Protocolo de Comunicação (H8P)
 
-Para garantir máxima performance e economia de memória no AVR, a comunicação utiliza chaves hexadecimais de 1 byte. 
+Para máxima performance e economia de SRAM no AVR, a comunicação usa chaves hexadecimais de 1 byte.
 
 > [!TIP]
-> Para detalhes técnicos completos sobre handshakes, fluxos de dados e especificações de cada comando, consulte o **[Guia de Integração Detalhado](./docs/INTEGRATION.md)**.
-> Você também pode acompanhar o histórico de melhorias no **[Changelog](./CHANGELOG.md)**.
+> Para a especificação completa do protocolo — handshakes, fluxos de dados e todos os códigos de resposta — consulte o **[Guia de Integração](./docs/INTEGRATION.md)**.
+> Acompanhe o histórico de versões no **[Changelog](./CHANGELOG.md)**.
 
-### Resumo de Comandos Rápidos:
+### Resumo de Comandos
 
 | Código | Função |
 | :--- | :--- |
-| `01` | **RUN**: Inicia a fila. |
-| `02` | **STOP**: Parada de emergência e limpa fila. |
-| `10:X` | **STEPS**: Define passos (obrigatório). |
-| `11:X` | **VEL**: Define velocidade (mínimo 50µs). |
+| `01` | **RUN** — Inicia a fila de movimentos. |
+| `02` | **STOP** — Parada de emergência e limpeza completa da fila. |
+| `10:X` | **STEPS** — Quantidade de passos *(obrigatório)*. |
+| `11:X` | **VEL** — Intervalo entre pulsos em µs, mínimo 50 *(obrigatório)*. |
+| `12:X` | **DIR** — Direção: `0` ou `1` *(opcional, default 0)*. |
+| `13:X` | **REPEAT** — Ciclos de repetição; `0` = infinito *(opcional, default 1)*. |
+| `14:X` | **PAUSE** — Pausa pós-execução em ms *(opcional)*. |
+| `15:X` | **MOTOR** — Seleciona o motor alvo: `1` ou `2` *(opcional, default 1)*. |
+
+**Exemplo — Motor 2, 1600 passos, intervalo 500µs, direção 1:**
+
+```
+10:1600,11:500,12:1,15:2
+```
 
 ---
 
-## 🛠️ Detalhes Técnicos Avançados (AVR)
+## 🛠️ Detalhes Técnicos AVR
 
-A geração de passos é efetuada no bloco `ISR(TIMER1_COMPA_vect)`. 
+### Timer1 Dual-Channel (Freerunning)
 
-A fim de manter a dinâmica de intervalos grandes (motor lento) ou pequenos (motor rápido), a função `moverMotor` adapta automaticamente o prescaler (bits `CS10`, `CS11` do registrador `TCCR1B`).
+O Timer1 opera em modo **Normal Freerunning** com dois registradores de comparação independentes:
 
-*   **Intervalos menores que ~32ms:** Prescaler 8 (Resolução de 0.5µs).
-*   **Intervalos maiores:** Prescaler 64 (Resolução de 4.0µs, limite máximo de ~262ms entre passos).
+- **OCR1A** → Motor 1 (`ISR(TIMER1_COMPA_vect)`)
+- **OCR1B** → Motor 2 (`ISR(TIMER1_COMPB_vect)`)
 
-Além disso, para respeitar as necessidades dos optoacopladores do driver TB6600, foi garantido um pulso em nível alto de exatos 3 microssegundos por etapa dentro do hardware (`_delay_us(3);`).
+Cada canal calcula seu próprio `next_compare` relativo ao TCNT1 atual, garantindo que a velocidade de um motor nunca interfira no timing do outro — por mais discrepante que seja a diferença de velocidade entre eles.
+
+### Prescaler Adaptativo
+
+A função `moverMotor()` ajusta o prescaler automaticamente conforme o intervalo pedido:
+
+| Intervalo | Prescaler | Resolução | Limite Máx. |
+| :--- | :--- | :--- | :--- |
+| < ~32ms | 8 | 0,5 µs | ~32 ms |
+| ≥ ~32ms | 64 | 4,0 µs | ~262 ms |
+
+### Pulso de Hardware
+
+Para respeitar o tempo mínimo de ativação dos optoacopladores do TB6600, cada passo garante um pulso HIGH de exatos **3 µs** via `_delay_us(3)`.
+
+### Gate Flag `fila_iniciada`
+
+A limpeza global da fila só é disparada após um RUN confirmado (`01`). Isso impede que a máquina de estados destrua a fila enquanto o usuário ainda está no processo de construção de comandos, antes de enviar o RUN.
 
 ---
 

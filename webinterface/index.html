@@ -92,6 +92,25 @@
                 
                 <div class="p-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        <!-- Motor Selector -->
+                        <div class="md:col-span-2 space-y-1.5">
+                            <label for="inp-motor" class="text-sm font-medium text-slate-700 flex justify-between">
+                                Motor Alvo
+                                <span class="text-[10px] font-normal text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">Key: 15</span>
+                            </label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button" id="btn-motor-1" class="motor-selector active-motor flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700 font-semibold text-sm transition-all cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500 outline-none" onclick="selectMotor(1)">
+                                    <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    Motor 1
+                                </button>
+                                <button type="button" id="btn-motor-2" class="motor-selector flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-slate-200 bg-white text-slate-500 font-semibold text-sm transition-all cursor-pointer shadow-sm hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500 outline-none" onclick="selectMotor(2)">
+                                    <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    Motor 2
+                                </button>
+                            </div>
+                            <input type="hidden" id="inp-motor" value="1">
+                        </div>
+
                         <!-- Inputs Grid -->
                         <div class="space-y-1.5">
                             <label for="inp-step" class="text-sm font-medium text-slate-700 flex justify-between">
@@ -200,7 +219,7 @@
         <!-- Right Column: Massive Action Controls -->
         <section class="lg:col-span-4 flex flex-col gap-4 sticky top-24">
             
-            <!-- Live Telemetry Card -->
+            <!-- Live Telemetry Card (Dual Motors) -->
             <div class="bg-gradient-to-tr from-slate-800 to-slate-900 p-5 rounded-2xl shadow-lg shadow-slate-900/10 border border-slate-700/60 flex flex-col mb-1">
                 <div class="flex items-center gap-2 mb-4">
                     <div class="flex h-2.5 w-2.5 relative">
@@ -209,18 +228,24 @@
                     </div>
                     <h3 class="text-xs font-bold text-slate-100 uppercase tracking-widest">Live Telemetry</h3>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-3 gap-3">
                     <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/50">
-                        <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Memória SRAM</span>
+                        <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">SRAM</span>
                         <div class="flex items-baseline gap-1 text-slate-100">
                             <span class="text-2xl font-mono" id="tel-queue">0</span>
                             <span class="text-xs font-medium text-slate-500">/ 20</span>
                         </div>
                     </div>
                     <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/50 flex flex-col justify-center overflow-hidden">
-                        <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Motor State</span>
+                        <span class="block text-[9px] font-bold uppercase tracking-wider text-blue-400 mb-1">Motor 1</span>
                         <div class="flex items-center mt-0.5">
-                            <span class="text-[13px] font-mono text-slate-400 truncate" id="tel-state">Standby</span>
+                            <span class="text-[12px] font-mono text-slate-400 truncate" id="tel-state-m1">Standby</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/50 flex flex-col justify-center overflow-hidden">
+                        <span class="block text-[9px] font-bold uppercase tracking-wider text-teal-400 mb-1">Motor 2</span>
+                        <div class="flex items-center mt-0.5">
+                            <span class="text-[12px] font-mono text-slate-400 truncate" id="tel-state-m2">Standby</span>
                         </div>
                     </div>
                 </div>
@@ -332,12 +357,12 @@
 
         // Dicionário do Arduino
         const hexResponses = {
-            "A0": { text: "🔗 [AVR Status]: Hardware pareado. Timer1 sincronizado a 16MHz.", type: "success" },
-            "B0": { text: "⚙️ [Execução]: Fila mestre iniciada. Despachando pulsos para o Driver TB6600.", type: "info" },
-            "B1": { text: "🛡️ [Emergency]: Interrupções cortadas atomicamente. Motores destravados e memória RAM limpa.", type: "warning" },
-            "B4": { text: "🔁 [Force Loop]: O firmware repetirá esta fila de movimentos em laço infinito.", type: "info" },
-            "B5": { text: "✅ [Finalizado]: O lote de instruções foi concluído com exito. Motor em Standby.", type: "success" },
-            "E0": { text: "🚫 [Operação Negada]: O motor já está executando uma manobra ativa. Aguarde ou dispare um STOP.", type: "error" },
+            "A0": { text: "🔗 [AVR Status]: Hardware pareado. Timer1 Dual-Channel sincronizado a 16MHz.", type: "success" },
+            "B0": { text: "⚙️ [Execução]: Fila mestre iniciada. Despachando pulsos independentes para M1 e M2.", type: "info" },
+            "B1": { text: "🛡️ [Emergency]: Interrupções cortadas atomicamente. Ambos motores destravados e RAM limpa.", type: "warning" },
+            "B4": { text: "🔁 [Force Loop]: O firmware repetirá esta fila de movimentos em laço infinito para ambos.", type: "info" },
+            "B5": { text: "✅ [Finalizado]: Todos os motores concluíram a fila de instruções. Standby.", type: "success" },
+            "E0": { text: "🚫 [Operação Negada]: Os motores já estão executando. Aguarde ou dispare um STOP.", type: "error" },
             "E1": { text: "⚠️ [Buffer Vazio]: A fila do MCU está ociosa. Injete um pacote de comandos antes de dar RUN.", type: "error" },
             "E2": { text: "🔴 [Overflow]: A SRAM atingiu o limite seguro (20 slots). Dispare um STOP (02) para limpar o buffer de memória.", type: "error" },
             "E3": { text: "🛑 [Safety Clamp Ativo]: Rejeitado! O intervalo inserido causará congelamento. Minimum = 50µs.", type: "error" }
@@ -464,34 +489,46 @@
             line = line.trim();
             if (!line) return null;
 
-            // --- PARSER DE TELEMETRIA SILENCIOSA ---
+            // --- PARSER DE TELEMETRIA SILENCIOSA (Dual Motor) ---
             if (line.startsWith("C1:")) { // RAM Load Update
                 document.getElementById('tel-queue').textContent = line.substring(3);
-                return null; // Não gera Toast, apenas atualiza UI
-            }
-            if (line.startsWith("D0:")) { // Active Line Update
-                const slot = line.substring(3);
-                const st = document.getElementById('tel-state');
-                st.textContent = `Exec L[${slot}]`;
-                st.className = "text-[13px] font-mono text-cyan-400 font-semibold truncate";
                 return null;
             }
-            if (line.startsWith("B3:")) { // Pause Update
+            if (line.startsWith("D0:")) { // Active Line Update — formato: D0:1XX (M1) ou D0:2XX (M2)
+                const rawSlot = parseInt(line.substring(3));
+                const motorNum = Math.floor(rawSlot / 100); // 1 ou 2
+                const slotIdx = rawSlot % 100;
+                const stId = motorNum === 2 ? 'tel-state-m2' : 'tel-state-m1';
+                const st = document.getElementById(stId);
+                if (st) {
+                    st.textContent = `Exec L[${slotIdx}]`;
+                    st.className = "text-[12px] font-mono text-cyan-400 font-semibold truncate";
+                }
+                return null;
+            }
+            if (line.startsWith("B3:")) { // Pause Update (afeta ambos visualmente)
                 const pTime = line.substring(3);
-                const st = document.getElementById('tel-state');
-                st.textContent = `Delay ${pTime}ms`;
-                st.className = "text-[13px] font-mono text-amber-400 animate-pulse truncate";
+                ['tel-state-m1', 'tel-state-m2'].forEach(id => {
+                    const st = document.getElementById(id);
+                    if (st && st.textContent.startsWith('Exec')) {
+                        st.textContent = `Delay ${pTime}ms`;
+                        st.className = "text-[12px] font-mono text-amber-400 animate-pulse truncate";
+                    }
+                });
                 return null; 
             }
 
             // Fallback Responses Visuais (Toasts)
             if (hexResponses[line]) {
-                // Hook para resetar painel na interface no ciclo de vida
                 if(line === "B1" || line === "B5" || line === "A0") {
-                    const st = document.getElementById('tel-state');
-                    st.textContent = "Standby";
-                    st.className = "text-[13px] font-mono text-slate-400 truncate";
-                    if (line === "B1" || line === "A0" || line === "B5") document.getElementById('tel-queue').textContent = "0";
+                    ['tel-state-m1', 'tel-state-m2'].forEach(id => {
+                        const st = document.getElementById(id);
+                        if (st) {
+                            st.textContent = "Standby";
+                            st.className = "text-[12px] font-mono text-slate-400 truncate";
+                        }
+                    });
+                    document.getElementById('tel-queue').textContent = "0";
                 }
                 return hexResponses[line];
             }
@@ -503,13 +540,15 @@
                 const parts = line.split(',');
                 let idx = parts[0].split(':')[1];
                 let details = [];
+                let motorLabel = 'M1';
                 for (let i = 1; i < parts.length; i++) {
                     const [key, val] = parts[i].split(':');
                     if (key === "10") details.push(`${val} Passos`);
                     if (key === "11") details.push(`${val}µs int.`);
                     if (key === "12") details.push(val==='1'?'[FWD]':'[REV]');
+                    if (key === "15") motorLabel = val === '2' ? 'M2' : 'M1';
                 }
-                return { text: `💾 [Alocado]: Slot N° ${idx} gravado na RAM -> (${details.join(' | ')})`, type: "success" };
+                return { text: `💾 [Alocado]: Slot N° ${idx} [${motorLabel}] gravado na RAM -> (${details.join(' | ')})`, type: "success" };
             }
 
             return { text: `RAW_HW > ${line}`, type: "info" };
@@ -580,12 +619,31 @@
         }
 
         // --- ENGENHARIA DE COMANDOS ---
+        let selectedMotor = 1;
+
+        function selectMotor(num) {
+            selectedMotor = num;
+            document.getElementById('inp-motor').value = num;
+            
+            const btn1 = document.getElementById('btn-motor-1');
+            const btn2 = document.getElementById('btn-motor-2');
+            
+            if (num === 1) {
+                btn1.className = 'motor-selector active-motor flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700 font-semibold text-sm transition-all cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500 outline-none';
+                btn2.className = 'motor-selector flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-slate-200 bg-white text-slate-500 font-semibold text-sm transition-all cursor-pointer shadow-sm hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500 outline-none';
+            } else {
+                btn2.className = 'motor-selector active-motor flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-teal-500 bg-teal-50 text-teal-700 font-semibold text-sm transition-all cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-teal-500 outline-none';
+                btn1.className = 'motor-selector flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-slate-200 bg-white text-slate-500 font-semibold text-sm transition-all cursor-pointer shadow-sm hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500 outline-none';
+            }
+        }
+
         function buildCommandFromInputs() {
             const step = document.getElementById('inp-step').value;
             const vel = document.getElementById('inp-vel').value;
             const dir = document.getElementById('inp-dir').value;
             const repeat = document.getElementById('inp-repeat').value;
             const pause = document.getElementById('inp-pause').value;
+            const motor = document.getElementById('inp-motor').value;
 
             if (!step || !vel || vel < 50) {
                 showToast("Erro: O firmware rejeitará. Velocity mínimo = 50µs.", "error");
@@ -597,6 +655,7 @@
 
             let cmd = `10:${step},11:${vel},12:${dir},13:${repeat}`;
             if (pause && pause.trim() !== "") cmd += `,14:${pause}`;
+            cmd += `,15:${motor}`;
             return cmd;
         }
 
