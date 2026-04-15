@@ -8,7 +8,7 @@
  * --- COMANDOS E PARÂMETROS (ENVIAR PARA O ARDUINO) ---
  * 01 : run       (Inicia a execução da fila)
  * 02 : stop      (Parada de emergência e limpa fila)
- * 03 : repeatAll (Ativa loop infinito da fila inteira para ambos)
+ * 03 : repeatAll (Booleano: 03:1 = ativa, 03:0 = desativa loop infinito)
  * 04 : pause     (Pausa global. Ex: 04:1000)
  * 10 : step      (Obrigatório - Quantidade de passos)
  * 11 : vel       (Obrigatório - Intervalo em microssegundos)
@@ -27,6 +27,7 @@
  * B2 : Pausa global definida
  * B4 : Modo repeatAll ATIVADO
  * B5 : Fila executada com sucesso
+ * B6 : Modo repeatAll DESATIVADO
  * C0 : Linha salva com sucesso (Retorna índice e parâmetros incluindo Motor)
  * C1 : [TELEMETRIA] Status de Slot na Fila (uso RAM)
  * D0 : [TELEMETRIA] Linha ativada pelos Optoacopladores do Motor 
@@ -362,15 +363,16 @@ void interpretarComando(char* linha) {
                     Serial.print(0xC1, HEX); Serial.print(':'); Serial.println(0);
                     return;
                 }
-                else if (chave == 0x03) { // repeatAll
-                    repetir_todas_linhas = true;
-                    Serial.println(0xB4, HEX);
-                    return;
-                }
+                // 0x03 agora requer valor (03:0 ou 03:1), tratado abaixo com os parametros
             } else {
                 uint32_t valor = atol(valor_str);
                 
-                if (chave == 0x04) {
+                if (chave == 0x03) { // repeatAll booleano (03:1 = ON, 03:0 = OFF)
+                    repetir_todas_linhas = (valor == 1);
+                    Serial.println(repetir_todas_linhas ? 0xB4 : 0xB6, HEX);
+                    return;
+                }
+                else if (chave == 0x04) {
                     global_pause_ms = valor;
                     Serial.print(0xB2, HEX); Serial.print(':'); Serial.println(global_pause_ms);
                     return;

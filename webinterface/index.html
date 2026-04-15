@@ -362,6 +362,7 @@
             "B1": { text: "🛡️ [Emergency]: Interrupções cortadas atomicamente. Ambos motores destravados e RAM limpa.", type: "warning" },
             "B4": { text: "🔁 [Force Loop]: O firmware repetirá esta fila de movimentos em laço infinito para ambos.", type: "info" },
             "B5": { text: "✅ [Finalizado]: Todos os motores concluíram a fila de instruções. Standby.", type: "success" },
+            "B6": { text: "⏹️ [Loop OFF]: Modo RepeatAll desativado. A fila encerrará ao final da execução.", type: "info" },
             "E0": { text: "🚫 [Operação Negada]: Os motores já estão executando. Aguarde ou dispare um STOP.", type: "error" },
             "E1": { text: "⚠️ [Buffer Vazio]: A fila do MCU está ociosa. Injete um pacote de comandos antes de dar RUN.", type: "error" },
             "E2": { text: "🔴 [Overflow]: A SRAM atingiu o limite seguro (20 slots). Dispare um STOP (02) para limpar o buffer de memória.", type: "error" },
@@ -907,6 +908,12 @@
             }
 
             toggleLibraryModal(false);
+
+            // Limpar fila atual (MCU + local) antes de carregar a nova sequência
+            await sendCommand("02"); // STOP — limpa SRAM do MCU
+            currentQueue = [];
+            updateQueueButtons();
+
             showToast(`📥 Carregando manobra: ${seq.name}...`, "info");
             
             // Lógica de envio sequencial seguro (Apenas LOAD, sem RUN)
@@ -953,22 +960,28 @@
             }
         });
 
-        document.getElementById('btn-run').addEventListener('click', () => sendCommand("01"));
+        document.getElementById('btn-run').addEventListener('click', async () => {
+            await sendCommand(repeatOn ? "03:1" : "03:0");
+            await sendCommand("01");
+        });
         document.getElementById('btn-stop').addEventListener('click', () => sendCommand("02"));
         
         // Customização de UI para o botão Repeat All
         let repeatOn = false;
         document.getElementById('btn-repeat-all').addEventListener('click', () => {
              repeatOn = !repeatOn;
+             const btn = document.getElementById('btn-repeat-all');
              const dot = document.getElementById('loop-dot');
              if(repeatOn) {
-                 dot.classList.replace('bg-slate-300', 'bg-blue-500');
-                 sendCommand("03"); 
+                 dot.classList.replace('bg-slate-300', 'bg-emerald-500');
+                 btn.classList.add('border-emerald-400', 'bg-emerald-50', 'text-emerald-700');
+                 btn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
+                 showToast("🔁 Loop ativado. Será enviado ao MCU junto com o RUN.", "info");
              } else {
-                 dot.classList.replace('bg-blue-500', 'bg-slate-300');
-                 showToast("Modo Mestre revogado localmente. Fila terminará na base.", "info");
-                 // Nota: O firmware atual lida com o modo repeatAll, nao criamos codigo para desativa-lo.
-                 // Mas a interacao UI responde.
+                 dot.classList.replace('bg-emerald-500', 'bg-slate-300');
+                 btn.classList.remove('border-emerald-400', 'bg-emerald-50', 'text-emerald-700');
+                 btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+                 showToast("⏹️ Loop desativado. A fila encerrará normalmente.", "info");
              }
         });
 
