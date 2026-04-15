@@ -274,8 +274,14 @@
 
     </main>
 
+    <!-- Alert History Button -->
+    <button id="btn-alert-history" class="fixed bottom-6 right-6 z-40 bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200/60 text-slate-500 hover:text-blue-600 hover:bg-white transition-all transform hover:-translate-y-1 hover:shadow-2xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer group" title="Histórico de Alertas" aria-label="Ver histórico de alertas recentes">
+        <svg aria-hidden="true" class="w-6 h-6 transition-transform group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+        <span id="alert-badge" class="absolute top-[8px] right-[8px] w-3.5 h-3.5 bg-rose-500 rounded-full border-[2.5px] border-white hidden animate-pulse shadow-sm"></span>
+    </button>
+
     <!-- Toasts Analytics (Substitui o Terminal Antigo) -->
-    <div id="toast-container" aria-live="polite" aria-atomic="true" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 items-end pointer-events-none"></div>
+    <div id="toast-container" aria-live="polite" aria-atomic="true" class="fixed bottom-[100px] right-6 z-50 flex flex-col gap-3 items-end pointer-events-none"></div>
 
     <!-- Library Modal -->
     <div id="modal-library" class="fixed inset-0 z-[60] hidden overflow-y-auto" role="dialog" aria-modal="true">
@@ -313,6 +319,55 @@
                         Dados persistidos via LocalStorage.
                     </span>
                     <button id="btn-clear-all-library" class="text-rose-500 hover:text-rose-700 font-bold uppercase tracking-wider transition-colors hover:bg-rose-50 px-3 py-2 rounded-lg">Limpar Tudo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Alert History Modal -->
+    <div id="modal-alerts" class="fixed inset-0 z-[70] hidden overflow-hidden" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 overflow-hidden">
+            <div id="modal-alerts-overlay" class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity cursor-pointer"></div>
+            
+            <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+                <div class="pointer-events-auto w-screen max-w-md transform transition-all flex h-full">
+                    <div class="flex h-full flex-col overflow-y-scroll bg-white shadow-2xl border-l border-slate-200 w-full animate-slideInRight">
+                        <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 sticky top-0 z-10 backdrop-blur-md">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2.5 bg-blue-100 text-blue-600 rounded-xl shadow-sm">
+                                    <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                                </div>
+                                <div>
+                                    <h2 class="text-base font-bold text-slate-800">Alertas Recentes</h2>
+                                    <p class="text-[11px] text-slate-500 uppercase tracking-widest font-mono font-medium mt-0.5">Sessão Local</p>
+                                </div>
+                            </div>
+                            <button id="btn-close-alerts" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 outline-none">
+                                <svg aria-hidden="true" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                        
+                        <div class="p-6 flex-1 bg-slate-50/30" id="alerts-content">
+                            <div class="flex flex-col items-center justify-center py-20" id="alerts-empty">
+                                <div class="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-5 border border-slate-200">
+                                    <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                                </div>
+                                <h3 class="text-slate-700 font-semibold text-base mb-1">Sem ocorrências</h3>
+                                <p class="text-slate-400 text-sm">Os alertas do sistema aparecerão aqui.</p>
+                            </div>
+                            <div id="alerts-list" class="flex flex-col gap-3 hidden">
+                                <!-- Dynamic list -->
+                            </div>
+                        </div>
+                        
+                        <div class="px-6 py-5 bg-white border-t border-slate-200 sticky bottom-0 z-10 shrink-0">
+                            <button id="btn-clear-alerts" class="w-full justify-center text-sm font-semibold bg-rose-50 hover:bg-rose-100 text-rose-600 px-4 py-3 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 outline-none shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                Esvaziar Histórico
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

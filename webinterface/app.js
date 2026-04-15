@@ -32,7 +32,27 @@
         };
 
         // UI-UX PRO MAX: Sistema de Notificações Não-intrusivas (Substituição do Terminal CSS)
+        
+        function logAlert(message, type) {
+            let alerts = JSON.parse(localStorage.getItem('stepper_alerts') || '[]');
+            alerts.unshift({
+                id: 'alert_' + Date.now(),
+                message: message,
+                type: type,
+                date: new Date().toISOString()
+            });
+            if (alerts.length > 50) alerts = alerts.slice(0, 50);
+            localStorage.setItem('stepper_alerts', JSON.stringify(alerts));
+            
+            const badge = document.getElementById('alert-badge');
+            const targetModal = document.getElementById('modal-alerts');
+            if (badge && targetModal && targetModal.classList.contains('hidden')) {
+                badge.classList.remove('hidden');
+            }
+        }
+
         function showToast(message, type = 'info') {
+            logAlert(message, type);
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             
@@ -656,3 +676,71 @@
             if (pGlobal !== "") sendCommand(`04:${pGlobal}`);
         });
     
+
+
+        // --- ALERT HISTORY MODAL ---
+        const alertsModal = document.getElementById('modal-alerts');
+        
+        function toggleAlertsModal(show) {
+            if (!alertsModal) return;
+            if (show) {
+                renderAlerts();
+                alertsModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+                const badge = document.getElementById('alert-badge');
+                if(badge) badge.classList.add('hidden');
+            } else {
+                alertsModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        }
+
+        document.getElementById('btn-alert-history')?.addEventListener('click', () => toggleAlertsModal(true));
+        document.getElementById('btn-close-alerts')?.addEventListener('click', () => toggleAlertsModal(false));
+        document.getElementById('modal-alerts-overlay')?.addEventListener('click', () => toggleAlertsModal(false));
+        
+        document.getElementById('btn-clear-alerts')?.addEventListener('click', () => {
+            localStorage.removeItem('stepper_alerts');
+            renderAlerts();
+            showToast("Log de alertas esvaziado.", "warning");
+        });
+
+        function renderAlerts() {
+            const list = document.getElementById('alerts-list');
+            const empty = document.getElementById('alerts-empty');
+            const clearBtn = document.getElementById('btn-clear-alerts');
+            const alerts = JSON.parse(localStorage.getItem('stepper_alerts') || '[]');
+
+            if (alerts.length === 0) {
+                list.classList.add('hidden');
+                empty.classList.remove('hidden');
+                clearBtn.disabled = true;
+                return;
+            }
+
+            empty.classList.add('hidden');
+            list.classList.remove('hidden');
+            clearBtn.disabled = false;
+            list.innerHTML = '';
+
+            alerts.forEach(alert => {
+                const item = document.createElement('div');
+                let colorClass = 'bg-white border-slate-200 text-slate-700 hover:border-slate-300';
+                let iconStr = `<svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                
+                if(alert.type === 'error') { colorClass = 'bg-white border-rose-200 text-rose-800 hover:border-rose-300'; iconStr = `<svg class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`; }
+                else if(alert.type === 'success') { colorClass = 'bg-white border-emerald-200 text-emerald-800 hover:border-emerald-300'; iconStr = `<svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`; }
+                else if(alert.type === 'warning') { colorClass = 'bg-white border-amber-200 text-amber-800 hover:border-amber-300'; iconStr = `<svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`; }
+                else if(alert.type === 'out') { colorClass = 'bg-slate-800 border-slate-700 text-slate-200 hover:border-slate-600'; iconStr = `<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>`; }
+
+                item.className = `p-4 rounded-2xl border flex items-start gap-4 shadow-sm transition-colors cursor-default ${colorClass}`;
+                item.innerHTML = `
+                    <div class="mt-0.5 shrink-0">${iconStr}</div>
+                    <div class="flex-1">
+                        <p class="leading-snug text-sm font-medium mb-1">${alert.message}</p>
+                        <p class="text-[11px] opacity-70 font-mono tracking-wider">${new Date(alert.date).toLocaleTimeString('pt-BR')}</p>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
