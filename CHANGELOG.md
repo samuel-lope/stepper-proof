@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-04-15
+
+### Added
+- **Código `B6` (Repeat OFF)**: Nova resposta do firmware ao receber `03:0`, confirmando que o loop infinito foi desativado.
+
+### Changed
+- **Comando `03` agora é booleano key:value**: `03:1` ativa e `03:0` desativa o loop infinito. Incompável com o formato antigo `03` sem valor (removido).
+- **Botão Mestre de Loop é toggle visual**: O botão "Ativar RepeatAll Fila" não envia mais o comando ao clicar. O estado é transmitido (`03:1` ou `03:0`) automaticamente junto com o **EXECUTE ALL**.
+- **Limpeza automática ao carregar sequência**: `loadTargetSequence` agora envia `02` (STOP) e reseta `currentQueue` antes de injetar uma sequência da biblioteca, prevenindo duplicidade de comandos na SRAM.
+
+---
+
 ## [1.3.0] - 2026-04-15
 
 ### Added

@@ -35,7 +35,8 @@ Disparam ações imediatas no sistema de estados.
 | :--- | :--- | :--- |
 | `01` | **RUN** | Inicia a execução sequencial da fila. Ativa a flag `fila_iniciada`. |
 | `02` | **STOP** | Interrompe ambos os canais do Timer1 atomicamente (`cli`/`sei`), limpa a fila e desativa os motores. |
-| `03` | **REPEAT ALL** | Define `repetir_todas_linhas = true` para loop infinito da fila completa. |
+| `03:1` | **REPEAT ON** | Ativa `repetir_todas_linhas = true`. Envia resposta `B4`. |
+| `03:0` | **REPEAT OFF** | Desativa `repetir_todas_linhas = false`. Envia resposta `B6`. |
 | `04:X` | **PAUSE GLOBAL** | Define pausa global (ms) entre todas as transições de linha. Ex: `04:500` |
 
 ### 📥 Parâmetros de Motor (Web → Arduino)
@@ -72,8 +73,9 @@ Enviados como string única com múltiplos campos separados por vírgula.
 | `B0` | **Run Started** | Fila iniciada. Pulsos sendo despachados para M1 e/ou M2. |
 | `B1` | **Emergency Stop** | Ambos os motores parados. Fila e RAM limpas. |
 | `B2:X` | **Global Pause Set** | Pausa global definida para X ms. |
-| `B4` | **Repeat All** | Modo loop infinito ativado para toda a fila. |
+| `B4` | **Repeat ON** | Loop infinito ativado (`03:1` recebido). |
 | `B5` | **Queue Done** | Todos os motores concluíram a fila. Standby. |
+| `B6` | **Repeat OFF** | Loop infinito desativado (`03:0` recebido). |
 | `E0` | **Already Running** | Operação rejeitada — motores em execução ativa. |
 | `E1` | **Queue Empty** | RUN rejeitado — fila vazia, nada a executar. |
 | `E2` | **Queue Overflow** | Limite de 20 slots atingido na SRAM. Use STOP para limpar. |
@@ -132,6 +134,25 @@ Para testar um movimento sem contaminar a fila persistente:
 1. UI envia `02` — limpa qualquer resíduo na fila.
 2. UI envia `10:X,11:Y,15:Z` — carrega o comando desejado.
 3. UI envia `01` — dispara execução imediatamente.
+
+### Execute All (RUN com controle de Loop)
+
+Quando o usuário clica em **EXECUTE ALL**, a interface injeta o estado atual do botão Mestre de Loop antes do `01`:
+
+1. UI envia `03:1` (se toggle ON) ou `03:0` (se toggle OFF).
+2. UI envia `01` — inicia a execução com o modo de loop já definido no MCU.
+
+Isso garante que o MCU sempre receba o estado correto de loop imediatamente antes da execução, independente de comandos anteriores.
+
+### Carregar Sequência da Biblioteca
+
+Ao carregar uma sequência salva do `localStorage`, a interface executa limpeza automática antes de injetar:
+
+1. UI envia `02` — limpa SRAM do MCU (STOP atômico).
+2. `currentQueue = []` — reseta a fila local JS.
+3. UI envia cada comando da sequência com delay de 150ms entre eles.
+
+Isso previne duplicidade ou acúmulo de linhas residuais na SRAM.
 
 ---
 

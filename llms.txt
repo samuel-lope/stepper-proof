@@ -12,6 +12,8 @@
 - **Timer1 Dual-Channel Freerunning**: ISR COMPA para M1, ISR COMPB para M2. Cada canal calcula seu `next_compare` independentemente — zero interferência mútua de timing.
 - **Parâmetro `15` (Motor Alvo)**: Chave que seleciona o motor destino (`1` ou `2`) por slot de fila. Default retrocompatível para Motor 1.
 - **`fila_iniciada` Gate Flag**: Flag booleana que previne limpeza prematura da fila antes do comando RUN (`01`). Crítica para correctness da máquina de estados.
+- **Comando `03` Boolean**: `03:1` ativa loop infinito, `03:0` desativa. Sempre enviado antes do `01` pela interface. MCU responde `B4` (ON) ou `B6` (OFF).
+- **Library Load Cleanup**: Ao carregar sequência salva, a interface envia `02` (STOP) e reseta a fila local antes de injetar — previne comandos residuais na SRAM.
 - **Segurança Atômica**: Proteção `cli`/`sei` em operações críticas. Safety Clamp de 50µs mínimo.
 - **Baud Rate**: 9600 bps.
 - **Queue System**: Fila de até 20 slots na SRAM, roteados por `motor_id` para M1 ou M2.

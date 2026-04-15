@@ -100,6 +100,8 @@ Para máxima performance e economia de SRAM no AVR, a comunicação usa chaves h
 | :--- | :--- |
 | `01` | **RUN** — Inicia a fila de movimentos. |
 | `02` | **STOP** — Parada de emergência e limpeza completa da fila. |
+| `03:1` | **REPEAT ON** — Ativa loop infinito da fila para ambos os motores. |
+| `03:0` | **REPEAT OFF** — Desativa o loop; fila encerra ao final *(enviado automaticamente junto com RUN)*. |
 | `10:X` | **STEPS** — Quantidade de passos *(obrigatório)*. |
 | `11:X` | **VEL** — Intervalo entre pulsos em µs, mínimo 50 *(obrigatório)*. |
 | `12:X` | **DIR** — Direção: `0` ou `1` *(opcional, default 0)*. |
@@ -142,6 +144,18 @@ Para respeitar o tempo mínimo de ativação dos optoacopladores do TB6600, cada
 ### Gate Flag `fila_iniciada`
 
 A limpeza global da fila só é disparada após um RUN confirmado (`01`). Isso impede que a máquina de estados destrua a fila enquanto o usuário ainda está no processo de construção de comandos, antes de enviar o RUN.
+
+### Comportamento da Biblioteca de Sequências
+
+Ao carregar uma sequência salva, a interface envia automaticamente `02` (STOP) para limpar a SRAM do MCU e reseta a fila local antes de injetar os novos comandos. Isso previne acúmulo de comandos duplicados ou residuais.
+
+### RepeatAll Boolean (`03:0` / `03:1`)
+
+O botão **Mestre de Loop** na interface é um toggle visual. O estado só é transmitido ao MCU no momento do **EXECUTE ALL**:
+- Toggle **ON** → envia `03:1` (ativa loop) antes de `01`
+- Toggle **OFF** → envia `03:0` (desativa loop) antes de `01`
+
+Isso garante que o MCU sempre saiba o estado correto do loop antes de iniciar a execução.
 
 ---
 
