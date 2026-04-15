@@ -373,6 +373,44 @@
         </div>
     </div>
 
+
+    <!-- Generic Prompt Modal -->
+    <div id="modal-prompt" class="fixed inset-0 z-[80] hidden overflow-hidden flex items-center justify-center p-4">
+        <div id="modal-prompt-overlay" class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-slate-200 animate-zoomIn">
+            <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/80">
+                <h3 class="text-lg font-bold text-slate-800" id="modal-prompt-title">Título</h3>
+            </div>
+            <div class="p-6 bg-white">
+                <input type="text" id="modal-prompt-input" class="w-full font-sans text-sm px-4 py-3 rounded-xl border border-slate-300 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 outline-none transition shadow-sm" autocomplete="off">
+            </div>
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button id="modal-prompt-cancel" class="text-sm font-medium text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-colors focus-visible:ring-2 focus-visible:ring-slate-300 outline-none">Cancelar</button>
+                <button id="modal-prompt-confirm" class="text-sm font-medium text-white bg-blue-600 border border-transparent px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 outline-none shadow-sm">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Confirm Modal -->
+    <div id="modal-confirm" class="fixed inset-0 z-[80] hidden overflow-hidden flex items-center justify-center p-4">
+        <div id="modal-confirm-overlay" class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-slate-200 animate-zoomIn">
+            <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/80 flex items-center gap-3">
+                <div class="flex-shrink-0 p-2 bg-rose-100 text-rose-600 rounded-full">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800" id="modal-confirm-title">Atenção</h3>
+            </div>
+            <div class="p-6 bg-white">
+                <p class="text-sm text-slate-600" id="modal-confirm-text">Mensagem de confirmação?</p>
+            </div>
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button id="modal-confirm-cancel" class="text-sm font-medium text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-colors focus-visible:ring-2 focus-visible:ring-slate-300 outline-none">Cancelar</button>
+                <button id="modal-confirm-confirm" class="text-sm font-medium text-white bg-rose-600 border border-transparent px-4 py-2 rounded-xl hover:bg-rose-700 transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 outline-none shadow-sm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Interface Logic -->
     <script src="app.js"></script>
 </body>

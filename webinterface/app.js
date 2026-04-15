@@ -371,8 +371,8 @@
             showToast("Fila da sessão limpa localmente.", "info");
         });
 
-        document.getElementById('btn-save-queue').addEventListener('click', () => {
-            const name = prompt("Dê um nome para esta sequência:", `Sequência ${new Date().toLocaleTimeString('pt-BR')}`);
+        document.getElementById('btn-save-queue').addEventListener('click', async () => {
+            const name = await showPromptModal("Salvar Sequência", `Sequência ${new Date().toLocaleTimeString('pt-BR')}`);
             if (name === null) return; // Cancelado
 
             const finalName = name.trim() === "" ? `Seq_${Date.now()}` : name;
@@ -393,7 +393,9 @@
             showToast(`Sequência "${name}" salva com sucesso!`, "success");
         }
 
-        function deleteSequence(id) {
+        async function deleteSequence(id, name) {
+            if(!await showConfirmModal("Excluir Sequência", `Tem certeza que deseja remover "${name}"?`)) return;
+            
             let library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
             library = library.filter(s => s.id !== id);
             localStorage.setItem('stepper_library', JSON.stringify(library));
@@ -484,7 +486,7 @@
                             <button onclick="loadTargetSequence('${seq.id}')" class="p-2.5 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-600 hover:text-white transition transform active:scale-90 shadow-sm focus-visible:ring-2 focus-visible:ring-sky-500 outline-none" title="Carregar na Placa">
                                 <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                             </button>
-                            <button onclick="deleteSequence('${seq.id}')" class="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 outline-none" title="Excluir Conjunto Completo">
+                            <button onclick="deleteSequence('${seq.id}', '${seq.name.replace(/'/g, "\\'")}')" class="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 outline-none" title="Excluir Conjunto Completo">
                                 <svg aria-hidden="true" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             </button>
                         </div>
@@ -628,8 +630,8 @@
         document.getElementById('btn-library').addEventListener('click', () => toggleLibraryModal(true));
         document.getElementById('btn-close-modal').addEventListener('click', () => toggleLibraryModal(false));
         document.getElementById('modal-overlay').addEventListener('click', () => toggleLibraryModal(false));
-        document.getElementById('btn-clear-all-library').addEventListener('click', () => {
-            if(confirm("Tem certeza que deseja apagar TODA a biblioteca?")) {
+        document.getElementById('btn-clear-all-library').addEventListener('click', async () => {
+            if(await showConfirmModal("Limpar Biblioteca", "Tem certeza que deseja apagar TODA a biblioteca? Esta ação não pode ser desfeita.")) {
                 localStorage.removeItem('stepper_library');
                 renderLibrary();
                 showToast("Biblioteca resetada.", "error");
@@ -742,5 +744,78 @@
                     </div>
                 `;
                 list.appendChild(item);
+            });
+        }
+
+
+        // --- CUSTOM MODALS (UI/UX PRO MAX) ---
+        function showPromptModal(title, defaultValue) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('modal-prompt');
+                const titleEl = document.getElementById('modal-prompt-title');
+                const inputEl = document.getElementById('modal-prompt-input');
+                const btnCancel = document.getElementById('modal-prompt-cancel');
+                const btnConfirm = document.getElementById('modal-prompt-confirm');
+                
+                titleEl.textContent = title;
+                inputEl.value = defaultValue || '';
+                
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+                inputEl.focus();
+                inputEl.select();
+
+                const cleanup = () => {
+                    modal.classList.add('hidden');
+                    document.body.style.overflow = '';
+                    btnCancel.removeEventListener('click', onCancel);
+                    btnConfirm.removeEventListener('click', onConfirm);
+                    inputEl.removeEventListener('keydown', onKey);
+                };
+
+                const onCancel = () => { cleanup(); resolve(null); };
+                const onConfirm = () => { cleanup(); resolve(inputEl.value); };
+                const onKey = (e) => { 
+                    if(e.key === 'Enter') onConfirm(); 
+                    if(e.key === 'Escape') onCancel(); 
+                };
+
+                btnCancel.addEventListener('click', onCancel);
+                btnConfirm.addEventListener('click', onConfirm);
+                inputEl.addEventListener('keydown', onKey);
+            });
+        }
+
+        function showConfirmModal(title, text) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('modal-confirm');
+                const titleEl = document.getElementById('modal-confirm-title');
+                const textEl = document.getElementById('modal-confirm-text');
+                const btnCancel = document.getElementById('modal-confirm-cancel');
+                const btnConfirm = document.getElementById('modal-confirm-confirm');
+                
+                titleEl.textContent = title;
+                textEl.textContent = text;
+                
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+
+                const cleanup = () => {
+                    modal.classList.add('hidden');
+                    document.body.style.overflow = '';
+                    btnCancel.removeEventListener('click', onCancel);
+                    btnConfirm.removeEventListener('click', onConfirm);
+                    document.removeEventListener('keydown', onKey);
+                };
+
+                const onCancel = () => { cleanup(); resolve(false); };
+                const onConfirm = () => { cleanup(); resolve(true); };
+                const onKey = (e) => { 
+                    if(e.key === 'Escape') onCancel(); 
+                };
+
+                btnCancel.addEventListener('click', onCancel);
+                btnConfirm.addEventListener('click', onConfirm);
+                document.addEventListener('keydown', onKey);
             });
         }
