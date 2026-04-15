@@ -13,8 +13,8 @@
         const baudRateSelect = document.getElementById('baud-rate');
         
         const controls = [
-            'btn-add-cmd', 'btn-run', 'btn-stop', 'btn-run-one',
-            'btn-set-pause', 'btn-repeat-all', 'btn-save-queue', 'btn-library'
+            'btn-run', 'btn-stop', 'btn-run-one',
+            'btn-set-pause', 'btn-repeat-all'
         ].map(id => document.getElementById(id));
 
         // Dicionário do Arduino
@@ -329,8 +329,12 @@
                 lastCommandSent = cmd;
                 currentQueue.push(cmd);
                 updateQueueButtons();
-                document.getElementById('btn-run-one').disabled = false;
-                sendCommand(cmd);
+                if (port) {
+                    document.getElementById('btn-run-one').disabled = false;
+                    sendCommand(cmd);
+                } else {
+                    showToast("Passo adicionado à fila local (Offline)", "success");
+                }
             }
         });
 
