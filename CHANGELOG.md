@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - **Evento `langchange`**: Custom event disparado ao trocar de idioma, permitindo que elementos dinâmicos (status de conexão, botão conectar) atualizem seus textos sem perder o estado atual.
 
 ### Fixed
+- **Alinhamento de Baud Rate**: Corrigido o baud rate padrão no componente `<select>` da interface web de 115200 para **9600 bps**, alinhando-o com a especificação do firmware e evitando falhas de conexão inicial para novos usuários.
 - **Bug de estado ao trocar idioma**: Corrigido o problema onde o indicador de conexão e botão "Conectar" eram resetados para "OFFLINE" ao trocar de idioma, mesmo com hardware conectado. Elementos dinâmicos agora usam `langchange` event listener ao invés de `data-i18n`.
 - **Bug de botões retraídos**: Corrigido o colapso dos botões "Motor 1"/"Motor 2" ao clicar na seleção. A classe `flex-1` estava ausente na string `base` da função `selectMotor()`.
 
