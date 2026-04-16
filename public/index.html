@@ -205,7 +205,7 @@
                 </div>
                 
                 <!-- Card Footer -->
-                <div class="px-6 py-4 bg-black/20 border-t border-white/10 flex justify-between items-center">
+                <div class="px-6 py-4 bg-black/20 border-t border-white/10 flex flex-wrap justify-between items-center gap-4">
                     <div class="flex gap-2">
                         <button id="btn-clear-queue" class="text-xs font-medium text-cream/60 hover:text-red-400 px-3 py-2 rounded-lg hover:bg-red-400/10 transition-colors focus-visible:ring-2 focus-visible:ring-red-400 outline-none" data-i18n="cmd.btn.clear">
                             Clear Current Queue
@@ -214,49 +214,17 @@
                             Save Sequence
                         </button>
                     </div>
-                    <button id="btn-add-cmd" class="bg-orange hover:bg-orange-dark disabled:bg-white/5 disabled:text-cream/30 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-2 transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none">
-                        <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        <span data-i18n="cmd.btn.add">Push to Array</span>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Global Configuration Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                <!-- Global Pause -->
-                <div class="bg-gradient-to-tr from-navy to-navy-light p-5 rounded-2xl border border-white/10 shadow-lg shadow-navy/30 flex flex-col justify-between hover:border-orange/40 transition-colors">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <svg aria-hidden="true" class="w-4 h-4 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <h3 class="text-sm font-semibold text-cream" data-i18n="global.pause.title">Global Pause (Key 04)</h3>
-                        </div>
-                        <p class="text-xs text-cream/50 mb-4 h-8" data-i18n="global.pause.desc">Fixed delay automatically injected between all lines in the motor queue.</p>
-                        <div class="flex gap-2">
-                            <input type="number" aria-label="Global pause time" name="inp_global_pause" autocomplete="off" spellcheck="false" id="inp-global-pause"
-                                data-i18n-placeholder="global.pause.placeholder"
-                                placeholder="e.g. 1000"
-                                class="w-full tabular-nums font-mono text-sm px-3 py-2 rounded-lg border border-white/10 focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-cream bg-black/20 placeholder:text-cream/30">
-                            <button id="btn-set-pause" disabled class="disabled:bg-white/5 disabled:text-cream/30 disabled:border-transparent disabled:cursor-not-allowed bg-white/10 hover:bg-white/20 text-cream text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-white/10 shadow-sm cursor-pointer whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none" data-i18n="global.pause.btn">Apply</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Loop Master -->
-                <div class="bg-gradient-to-tr from-navy to-navy-light p-5 rounded-2xl border border-white/10 shadow-lg shadow-navy/30 flex flex-col justify-between hover:border-orange/40 transition-colors">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <svg aria-hidden="true" class="w-4 h-4 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            <h3 class="text-sm font-semibold text-cream" data-i18n="global.loop.title">Loop Master (Key 03)</h3>
-                        </div>
-                        <p class="text-xs text-cream/50 mb-4 h-8" data-i18n="global.loop.desc">Overrides the queue to restart infinitely from zero after completing.</p>
-                        <button id="btn-repeat-all" disabled class="w-full disabled:bg-white/5 disabled:text-cream/30 disabled:border-transparent disabled:cursor-not-allowed bg-white/10 hover:bg-white/20 text-cream text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-white/10 shadow-sm cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none">
-                            <span class="w-2 h-2 rounded-full bg-white/20 transition-colors" id="loop-dot" aria-hidden="true"></span>
-                            <span data-i18n="global.loop.btn">Activate Queue RepeatAll</span>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-run-one" disabled class="group disabled:border-white/10 disabled:text-cream/30 disabled:bg-transparent disabled:cursor-not-allowed border border-orange/40 hover:border-orange text-orange bg-orange/10 hover:bg-orange/20 text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors cursor-pointer flex items-center gap-2 transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none">
+                            <svg aria-hidden="true" class="w-4 h-4 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            <span data-i18n="hw.step.btn">Fire Single Step</span>
+                        </button>
+                        <button id="btn-add-cmd" class="bg-orange hover:bg-orange-dark disabled:bg-white/5 disabled:text-cream/30 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-2 transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none">
+                            <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <span data-i18n="cmd.btn.add">Push to Array</span>
                         </button>
                     </div>
                 </div>
-
             </div>
         </section>
 
@@ -291,45 +259,52 @@
                 </div>
             </div>
 
-            <h2 class="text-[11px] font-bold uppercase tracking-widest text-navy/50 mb-1 px-1 mt-1" data-i18n="hw.panel.title">Hardware Panel</h2>
-            
-            <!-- Execute All -->
-            <button id="btn-run" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-500 hover:bg-emerald-600 border border-emerald-600 text-white font-semibold py-8 px-4 rounded-2xl shadow-[0_8px_16px_rgba(16,185,129,0.2)] transition transform active:scale-[98%] cursor-pointer flex flex-col items-center justify-center gap-3 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:outline-none">
-                <div class="bg-white/20 p-3 rounded-full group-hover:scale-110 transition-transform">
-                    <svg aria-hidden="true" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-lg tracking-wide">EXECUTE ALL</span>
-                    <span class="text-[10px] font-mono text-emerald-100/80 mt-1 uppercase" aria-hidden="true">Hex Cmd: 01</span>
-                </div>
-            </button>
-            
-            <!-- Emergency Stop -->
-            <button id="btn-stop" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-brand hover:bg-brand-dark border border-brand-dark text-white font-semibold py-8 px-4 rounded-2xl shadow-[0_8px_16px_rgba(214,40,40,0.25)] transition transform active:scale-[98%] cursor-pointer flex flex-col items-center justify-center gap-3 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:outline-none">
-                <div class="bg-white/20 p-3 rounded-full group-hover:scale-110 transition-transform">
-                    <svg aria-hidden="true" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>
-                </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-lg tracking-wide">EMERGENCY STOP</span>
-                    <span class="text-[10px] font-mono text-red-100/80 mt-1 uppercase" aria-hidden="true">Atomic Cmd: 02</span>
-                </div>
-            </button>
-
-            <!-- Quick Debug Divider -->
-            <div class="relative mt-2 mb-1">
-                <div class="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div class="w-full border-t border-cream-dark"></div>
-                </div>
-                <div class="relative flex justify-center">
-                    <span class="bg-cream-light px-3 text-xs font-medium text-navy/40">Quick Debug</span>
+            <!-- Loop Master -->
+            <div class="bg-gradient-to-tr from-navy to-navy-light p-5 rounded-2xl border border-white/10 shadow-lg shadow-navy/30 flex flex-col justify-between hover:border-orange/40 transition-colors">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg aria-hidden="true" class="w-4 h-4 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <h3 class="text-sm font-semibold text-cream" data-i18n="global.loop.title">Loop Master (Key 03)</h3>
+                    </div>
+                    <p class="text-xs text-cream/50 mb-4 h-8" data-i18n="global.loop.desc">Overrides the queue to restart infinitely from zero after completing.</p>
+                    <button id="btn-repeat-all" disabled class="w-full disabled:bg-white/5 disabled:text-cream/30 disabled:border-transparent disabled:cursor-not-allowed bg-white/10 hover:bg-white/20 text-cream text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-white/10 shadow-sm cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none">
+                        <span class="w-2 h-2 rounded-full bg-white/20 transition-colors" id="loop-dot" aria-hidden="true"></span>
+                        <span data-i18n="global.loop.btn">Activate Queue RepeatAll</span>
+                    </button>
                 </div>
             </div>
-            
-            <!-- Fire Single Step -->
-            <button id="btn-run-one" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:bg-amber/10 border border-cream-dark hover:border-amber/50 text-orange-dark font-medium py-3.5 px-4 rounded-xl shadow-sm transition transform active:scale-[98%] cursor-pointer flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none">
-                <svg aria-hidden="true" class="w-5 h-5 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                <span class="text-sm" data-i18n="hw.step.btn">Fire Single Step</span>
-            </button>
+
+            <!-- Global Pause -->
+            <div class="bg-gradient-to-tr from-navy to-navy-light p-5 rounded-2xl border border-white/10 shadow-lg shadow-navy/30 flex flex-col justify-between hover:border-orange/40 transition-colors">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg aria-hidden="true" class="w-4 h-4 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <h3 class="text-sm font-semibold text-cream" data-i18n="global.pause.title">Global Pause (Key 04)</h3>
+                    </div>
+                    <p class="text-xs text-cream/50 mb-4 h-8" data-i18n="global.pause.desc">Fixed delay automatically injected between all lines in the motor queue.</p>
+                    <div class="flex gap-2">
+                        <input type="number" aria-label="Global pause time" name="inp_global_pause" autocomplete="off" spellcheck="false" id="inp-global-pause"
+                            data-i18n-placeholder="global.pause.placeholder"
+                            placeholder="e.g. 1000"
+                            class="w-full tabular-nums font-mono text-sm px-3 py-2 rounded-lg border border-white/10 focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-cream bg-black/20 placeholder:text-cream/30">
+                        <button id="btn-set-pause" disabled class="disabled:bg-white/5 disabled:text-cream/30 disabled:border-transparent disabled:cursor-not-allowed bg-white/10 hover:bg-white/20 text-cream text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-white/10 shadow-sm cursor-pointer whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none" data-i18n="global.pause.btn">Apply</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mt-1">
+                <!-- Emergency Stop -->
+                <button id="btn-stop" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-brand/90 hover:bg-brand text-white font-bold py-4 px-3 rounded-xl shadow-[0_4px_10px_rgba(214,40,40,0.3)] transition transform active:scale-[98%] cursor-pointer flex flex-col items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:outline-none">
+                    <span class="text-[13px] tracking-wide text-center uppercase" style="text-shadow: 0 1px 2px rgba(0,0,0,0.2);">Emergency Stop</span>
+                    <span class="text-[8px] font-mono text-red-100/90 uppercase text-center" aria-hidden="true">Atomic Cmd: 07</span>
+                </button>
+                
+                <!-- Execute All -->
+                <button id="btn-run" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-500/90 hover:bg-emerald-500 text-white font-bold py-4 px-3 rounded-xl shadow-[0_4px_10px_rgba(16,185,129,0.3)] transition transform active:scale-[98%] cursor-pointer flex flex-col items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:outline-none">
+                    <span class="text-[13px] tracking-wide text-center uppercase" style="text-shadow: 0 1px 2px rgba(0,0,0,0.2);">Execute All</span>
+                    <span class="text-[8px] font-mono text-emerald-100/90 uppercase text-center" aria-hidden="true">Hex Cmd: 01</span>
+                </button>
+            </div>
         </section>
 
     </main>

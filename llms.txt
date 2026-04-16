@@ -22,4 +22,4 @@
 - **Baud Rate**: 9600 bps.
 - **Queue System**: Fila de até 20 slots na SRAM, roteados por `motor_id` para M1 ou M2.
 - **Live Telemetry Dual**: Monitoramento reativo de SRAM, estado de execução e estado do driver (ON/OFF) de cada motor via sinais passivos `C1`, `D0`, `B3`, `B7`, `B8`.
-
+- **UI/UX Optimization (Layout)**: Painel escuro (Dark Theme), organização lateral para Live Telemetry em oposição ao construtor de filas e integração do botão de *Single Step* horizontal, evitando totalmente rolagem vertical em navegadores e organizando o fluxo de visão (Golden Ratio 62:38).
