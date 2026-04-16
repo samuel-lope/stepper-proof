@@ -19,9 +19,7 @@
 
         const controls = [
             'btn-run', 'btn-stop', 'btn-run-one',
-            'btn-set-pause', 'btn-repeat-all',
-            'btn-enable-m1', 'btn-disable-m1',
-            'btn-enable-m2', 'btn-disable-m2'
+            'btn-set-pause', 'btn-repeat-all'
         ].map(id => document.getElementById(id));
 
         // ── Notification System ───────────────────────────────────────────────
@@ -314,7 +312,7 @@
 
             const btn1 = document.getElementById('btn-motor-1');
             const btn2 = document.getElementById('btn-motor-2');
-            const base = 'motor-selector flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all cursor-pointer shadow-sm focus-visible:ring-2 outline-none';
+            const base = 'motor-selector flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all cursor-pointer shadow-sm focus-visible:ring-2 outline-none';
             const inactive = `${base} border-cream-dark bg-white text-navy/50 hover:border-orange/40 hover:bg-cream/40 focus-visible:ring-orange`;
 
             if (num === 1) {
@@ -648,12 +646,14 @@
             if (pGlobal !== '') sendCommand(`04:${pGlobal}`);
         });
 
-        // ── Motor Driver Enable/Disable ────────────────────────────────────────
+        // ── Motor Driver Enable/Disable (Checkboxes) ─────────────────────────
 
-        document.getElementById('btn-enable-m1').addEventListener('click',  () => sendCommand('16:1'));
-        document.getElementById('btn-disable-m1').addEventListener('click', () => sendCommand('17:1'));
-        document.getElementById('btn-enable-m2').addEventListener('click',  () => sendCommand('16:2'));
-        document.getElementById('btn-disable-m2').addEventListener('click', () => sendCommand('17:2'));
+        document.getElementById('chk-enable-m1').addEventListener('change', (e) => {
+            sendCommand(e.target.checked ? '16:1' : '17:1');
+        });
+        document.getElementById('chk-enable-m2').addEventListener('change', (e) => {
+            sendCommand(e.target.checked ? '16:2' : '17:2');
+        });
 
         // ── RepeatAll Toggle ──────────────────────────────────────────────────
 

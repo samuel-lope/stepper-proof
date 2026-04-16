@@ -48,10 +48,7 @@ const translations = {
         // ── Telemetry & Hardware Panel ────────────────────────────────────
         'hw.panel.title':               'Hardware Panel',
         'hw.step.btn':                  'Fire Single Step',
-        'hw.enable.m1':                 'Enable M1',
-        'hw.disable.m1':                'Disable M1',
-        'hw.enable.m2':                 'Enable M2',
-        'hw.disable.m2':                'Disable M2',
+        'hw.enable.title':              'Enable/Disable motor driver',
 
         // ── Alert History Floating Button ─────────────────────────────────
         'alerts.btn.title':             'Alert History',
@@ -193,10 +190,7 @@ const translations = {
         // ── Telemetry & Hardware Panel ────────────────────────────────────
         'hw.panel.title':               'Painel Hardware',
         'hw.step.btn':                  'Disparar Passo Único',
-        'hw.enable.m1':                 'Habilitar M1',
-        'hw.disable.m1':                'Desabilitar M1',
-        'hw.enable.m2':                 'Habilitar M2',
-        'hw.disable.m2':                'Desabilitar M2',
+        'hw.enable.title':              'Habilitar/Desabilitar driver do motor',
 
         // ── Alert History Floating Button ─────────────────────────────────
         'alerts.btn.title':             'Histórico de Alertas',
