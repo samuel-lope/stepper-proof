@@ -1,0 +1,29 @@
+{
+  "name": "stepper-proof",
+  "version": "0.0.1",
+  "description": "Stepper motor control with Arduino - Tester and Web Interface",
+  "keywords": [
+    "motor",
+    "stepper",
+    "control",
+    "arduino"
+  ],
+  "homepage": "https://github.com/samuel-lope/stepper-proof#readme",
+  "bugs": {
+    "url": "https://github.com/samuel-lope/stepper-proof/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samuel-lope/stepper-proof.git"
+  },
+  "license": "MIT",
+  "author": "Samuel Lopes",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}

@@ -1,21 +1,44 @@
+/* ─── Palette Tokens ─────────────────────────── */
+:root {
+    --color-navy:   #003049;
+    --color-brand:  #D62828;
+    --color-orange: #F77F00;
+    --color-amber:  #FCBF49;
+    --color-cream:  #EAE2B7;
+}
+
+/* ─── Toast Animations ───────────────────────── */
 .toast-enter { animation: slideInX 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .toast-leave { animation: slideOutX 0.3s cubic-bezier(0.4, 0, 1, 1) forwards; }
-@keyframes slideInX { 
-    0% { transform: translateX(120%); opacity: 0; } 
-    100% { transform: translateX(0); opacity: 1; } 
-}
-@keyframes slideOutX { 
-    0% { transform: translateX(0); opacity: 1; } 
-    100% { transform: translateX(120%); opacity: 0; } 
-}
-/* Custom Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+@keyframes slideInX {
+    0%   { transform: translateX(120%); opacity: 0; }
+    100% { transform: translateX(0);    opacity: 1; }
+}
+@keyframes slideOutX {
+    0%   { transform: translateX(0);    opacity: 1; }
+    100% { transform: translateX(120%); opacity: 0; }
+}
+
+/* ─── Custom Scrollbar ───────────────────────── */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--color-amber);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-orange); }
+
+/* ─── Slide-In Panel ─────────────────────────── */
 @keyframes slideInRight {
-    0% { transform: translateX(100%); opacity: 0.5; }
-    100% { transform: translateX(0); opacity: 1; }
+    0%   { transform: translateX(100%); opacity: 0.5; }
+    100% { transform: translateX(0);    opacity: 1; }
 }
 .animate-slideInRight { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* ─── Active Motor Selector ──────────────────── */
+.active-motor {
+    border-color: var(--color-orange) !important;
+    background: rgba(247, 127, 0, 0.1) !important;
+    color: #d96e00 !important;
+}
