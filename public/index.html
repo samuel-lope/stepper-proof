@@ -100,42 +100,42 @@
         <section class="lg:col-span-8 flex flex-col gap-6">
             
             <!-- Command Builder Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-cream-dark overflow-hidden group">
-                <div class="px-6 py-5 border-b border-cream-dark bg-cream/60 flex justify-between items-center">
+            <div class="bg-gradient-to-tr from-navy to-navy-light rounded-2xl shadow-lg shadow-navy/30 border border-white/10 overflow-hidden group">
+                <div class="px-6 py-5 border-b border-white/10 bg-black/20 flex justify-between items-center">
                     <div>
-                        <h2 class="text-base font-semibold text-navy" data-i18n="cmd.card.title">New Movement Command</h2>
-                        <p class="text-sm text-navy/60 mt-0.5" data-i18n="cmd.card.subtitle">Configure technical parameters to inject into the microcontroller queue.</p>
+                        <h2 class="text-base font-semibold text-cream" data-i18n="cmd.card.title">New Movement Command</h2>
+                        <p class="text-sm text-cream/60 mt-0.5" data-i18n="cmd.card.subtitle">Configure technical parameters to inject into the microcontroller queue.</p>
                     </div>
-                    <span class="px-2.5 py-1 bg-orange/10 text-orange-dark text-xs font-mono font-medium rounded-md border border-orange/20 hidden md:block">H8P Protocol</span>
+                    <span class="px-2.5 py-1 bg-orange/20 text-orange text-xs font-mono font-medium rounded-md border border-orange/30 hidden md:block">H8P Protocol</span>
                 </div>
                 
-                <div class="p-6 bg-white">
+                <div class="p-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <!-- Motor Selector -->
                         <div class="md:col-span-2 space-y-1.5">
-                            <label for="inp-motor" class="text-sm font-medium text-navy flex justify-between">
+                            <label for="inp-motor" class="text-sm font-medium text-cream flex justify-between">
                                 <span data-i18n="cmd.motor.label">Target Motor</span>
-                                <span class="text-[10px] font-normal text-navy/40 font-mono bg-cream px-1.5 py-0.5 rounded">Key: 15</span>
+                                <span class="text-[10px] font-normal text-cream/50 font-mono bg-black/20 border border-white/5 px-1.5 py-0.5 rounded">Key: 15</span>
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                                 <div class="flex items-center gap-2">
-                                    <button type="button" id="btn-motor-1" class="motor-selector active-motor flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-orange bg-orange/10 text-orange-dark font-semibold text-sm transition-all cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-orange outline-none" onclick="selectMotor(1)">
+                                    <button type="button" id="btn-motor-1" class="motor-selector active-motor flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-orange bg-orange/20 text-orange font-semibold text-sm transition-all cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-orange outline-none" onclick="selectMotor(1)">
                                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         <span data-i18n="cmd.motor.1">Motor 1</span>
                                     </button>
                                     <label class="relative flex items-center cursor-pointer shrink-0" data-i18n-title="hw.enable.title">
                                         <input type="checkbox" id="chk-enable-m1" checked class="sr-only peer">
-                                        <div class="w-9 h-5 bg-cream-dark rounded-full peer peer-checked:bg-emerald-500 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500/50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform after:shadow-sm peer-checked:after:translate-x-4"></div>
+                                        <div class="w-9 h-5 bg-white/20 rounded-full peer peer-checked:bg-emerald-500 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500/50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform after:shadow-sm peer-checked:after:translate-x-4"></div>
                                     </label>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <button type="button" id="btn-motor-2" class="motor-selector flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-cream-dark bg-white text-navy/50 font-semibold text-sm transition-all cursor-pointer shadow-sm hover:border-orange/40 hover:bg-cream/40 focus-visible:ring-2 focus-visible:ring-orange outline-none" onclick="selectMotor(2)">
+                                    <button type="button" id="btn-motor-2" class="motor-selector flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-white/10 bg-black/20 text-cream/50 font-semibold text-sm transition-all cursor-pointer shadow-sm hover:border-orange/30 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-orange outline-none" onclick="selectMotor(2)">
                                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         <span data-i18n="cmd.motor.2">Motor 2</span>
                                     </button>
                                     <label class="relative flex items-center cursor-pointer shrink-0" data-i18n-title="hw.enable.title">
                                         <input type="checkbox" id="chk-enable-m2" checked class="sr-only peer">
-                                        <div class="w-9 h-5 bg-cream-dark rounded-full peer peer-checked:bg-emerald-500 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500/50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform after:shadow-sm peer-checked:after:translate-x-4"></div>
+                                        <div class="w-9 h-5 bg-white/20 rounded-full peer peer-checked:bg-emerald-500 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500/50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform after:shadow-sm peer-checked:after:translate-x-4"></div>
                                     </label>
                                 </div>
                             </div>
@@ -144,77 +144,77 @@
 
                         <!-- Step Count -->
                         <div class="space-y-1.5">
-                            <label for="inp-step" class="text-sm font-medium text-navy flex justify-between">
+                            <label for="inp-step" class="text-sm font-medium text-cream flex justify-between">
                                 <span data-i18n="cmd.step.label">Step Count</span>
-                                <span class="text-[10px] font-normal text-navy/40 font-mono bg-cream px-1.5 py-0.5 rounded">Key: 10</span>
+                                <span class="text-[10px] font-normal text-cream/50 font-mono bg-black/20 border border-white/5 px-1.5 py-0.5 rounded">Key: 10</span>
                             </label>
-                            <input type="number" id="inp-step" name="inp_step" autocomplete="off" spellcheck="false" value="1600" min="1" class="w-full font-mono tabular-nums text-sm px-4 py-2.5 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-navy bg-white">
+                            <input type="number" id="inp-step" name="inp_step" autocomplete="off" spellcheck="false" value="1600" min="1" class="w-full font-mono tabular-nums text-sm px-4 py-2.5 rounded-lg border border-white/10 focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-cream bg-black/20 placeholder:text-cream/30">
                         </div>
                         
                         <!-- Pulse Interval -->
                         <div class="space-y-1.5">
-                            <label for="inp-vel" class="text-sm font-medium text-navy flex justify-between">
+                            <label for="inp-vel" class="text-sm font-medium text-cream flex justify-between">
                                 <span data-i18n="cmd.vel.label">Pulse Interval (µs)</span>
-                                <span class="text-[10px] font-normal text-navy/40 font-mono bg-cream px-1.5 py-0.5 rounded">Key: 11</span>
+                                <span class="text-[10px] font-normal text-cream/50 font-mono bg-black/20 border border-white/5 px-1.5 py-0.5 rounded">Key: 11</span>
                             </label>
                             <div class="relative">
-                                <input type="number" id="inp-vel" name="inp_vel" autocomplete="off" spellcheck="false" value="500" min="50" class="w-full font-mono tabular-nums text-sm pl-4 pr-14 py-2.5 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-navy bg-white">
-                                <span class="absolute right-3 top-2.5 text-xs font-medium text-navy/40" aria-hidden="true" data-i18n="cmd.vel.hint">MIN 50</span>
+                                <input type="number" id="inp-vel" name="inp_vel" autocomplete="off" spellcheck="false" value="500" min="50" class="w-full font-mono tabular-nums text-sm pl-4 pr-14 py-2.5 rounded-lg border border-white/10 focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-cream bg-black/20 placeholder:text-cream/30">
+                                <span class="absolute right-3 top-2.5 text-xs font-medium text-cream/40" aria-hidden="true" data-i18n="cmd.vel.hint">MIN 50</span>
                             </div>
                         </div>
                         
                         <!-- Direction -->
                         <div class="space-y-1.5">
-                            <label for="inp-dir" class="text-sm font-medium text-navy flex justify-between">
+                            <label for="inp-dir" class="text-sm font-medium text-cream flex justify-between">
                                 <span data-i18n="cmd.dir.label">Physical Direction</span>
-                                <span class="text-[10px] font-normal text-navy/40 font-mono bg-cream px-1.5 py-0.5 rounded">Key: 12</span>
+                                <span class="text-[10px] font-normal text-cream/50 font-mono bg-black/20 border border-white/5 px-1.5 py-0.5 rounded">Key: 12</span>
                             </label>
-                            <select id="inp-dir" name="inp_dir" autocomplete="off" class="w-full font-mono text-sm px-4 py-2.5 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none bg-white cursor-pointer transition shadow-sm appearance-none text-navy">
-                                <option value="1" data-i18n="cmd.dir.fwd">1 (Direction A — Forward)</option>
-                                <option value="0" data-i18n="cmd.dir.rev">0 (Direction B — Reverse)</option>
+                            <select id="inp-dir" name="inp_dir" autocomplete="off" class="w-full font-mono text-sm px-4 py-2.5 rounded-lg border border-white/10 focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none bg-black/20 cursor-pointer transition shadow-sm appearance-none text-cream">
+                                <option value="1" class="bg-navy text-cream" data-i18n="cmd.dir.fwd">1 (Direction A — Forward)</option>
+                                <option value="0" class="bg-navy text-cream" data-i18n="cmd.dir.rev">0 (Direction B — Reverse)</option>
                             </select>
                         </div>
                         
                         <!-- Repetition Cycles -->
                         <div class="space-y-1.5">
-                            <label for="inp-repeat" class="text-sm font-medium text-navy flex justify-between">
+                            <label for="inp-repeat" class="text-sm font-medium text-cream flex justify-between">
                                 <span data-i18n="cmd.repeat.label">Repetition Cycles</span>
-                                <span class="text-[10px] font-normal text-navy/40 font-mono bg-cream px-1.5 py-0.5 rounded">Key: 13</span>
+                                <span class="text-[10px] font-normal text-cream/50 font-mono bg-black/20 border border-white/5 px-1.5 py-0.5 rounded">Key: 13</span>
                             </label>
                             <div class="relative">
-                                <input type="number" id="inp-repeat" name="inp_repeat" autocomplete="off" spellcheck="false" value="1" min="0" title="0 = infinite" class="w-full font-mono tabular-nums text-sm pl-4 pr-14 py-2.5 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-navy bg-white">
-                                <span class="absolute right-3 top-2.5 text-xs font-medium text-navy/40" aria-hidden="true">0=INF</span>
+                                <input type="number" id="inp-repeat" name="inp_repeat" autocomplete="off" spellcheck="false" value="1" min="0" title="0 = infinite" class="w-full font-mono tabular-nums text-sm pl-4 pr-14 py-2.5 rounded-lg border border-white/10 focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-cream bg-black/20 placeholder:text-cream/30">
+                                <span class="absolute right-3 top-2.5 text-xs font-medium text-cream/40" aria-hidden="true">0=INF</span>
                             </div>
                         </div>
 
                         <!-- Post-Execution Pause -->
                         <div class="md:col-span-2 space-y-1.5">
-                            <label for="inp-pause" class="text-sm font-medium text-navy flex justify-between">
+                            <label for="inp-pause" class="text-sm font-medium text-cream flex justify-between">
                                 <span data-i18n="cmd.pause.label">Post-Execution Pause</span>
-                                <span class="text-[10px] font-normal text-navy/40 font-mono bg-cream px-1.5 py-0.5 rounded">Key: 14</span>
+                                <span class="text-[10px] font-normal text-cream/50 font-mono bg-black/20 border border-white/5 px-1.5 py-0.5 rounded">Key: 14</span>
                             </label>
                             <div class="relative">
                                 <input type="number" id="inp-pause" name="inp_pause" autocomplete="off" spellcheck="false" min="0"
                                     data-i18n-placeholder="cmd.pause.placeholder"
                                     placeholder="e.g. 500 (Optional)"
-                                    class="w-full font-mono tabular-nums text-sm pl-4 pr-12 py-2.5 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-navy bg-white">
-                                <span class="absolute right-4 top-2.5 text-sm font-medium text-navy/40" aria-hidden="true">ms</span>
+                                    class="w-full font-mono tabular-nums text-sm pl-4 pr-12 py-2.5 rounded-lg border border-white/10 focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-cream bg-black/20 placeholder:text-cream/30">
+                                <span class="absolute right-4 top-2.5 text-sm font-medium text-cream/40" aria-hidden="true">ms</span>
                             </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Card Footer -->
-                <div class="px-6 py-4 bg-cream/50 border-t border-cream-dark flex justify-between items-center">
+                <div class="px-6 py-4 bg-black/20 border-t border-white/10 flex justify-between items-center">
                     <div class="flex gap-2">
-                        <button id="btn-clear-queue" class="text-xs font-medium text-navy/60 hover:text-brand px-3 py-2 rounded-lg hover:bg-brand/10 transition-colors focus-visible:ring-2 focus-visible:ring-brand outline-none" data-i18n="cmd.btn.clear">
+                        <button id="btn-clear-queue" class="text-xs font-medium text-cream/60 hover:text-red-400 px-3 py-2 rounded-lg hover:bg-red-400/10 transition-colors focus-visible:ring-2 focus-visible:ring-red-400 outline-none" data-i18n="cmd.btn.clear">
                             Clear Current Queue
                         </button>
-                        <button id="btn-save-queue" disabled class="text-xs font-medium text-navy bg-white border border-cream-dark px-4 py-2 rounded-lg hover:bg-cream/60 shadow-sm transition transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-orange outline-none" data-i18n="cmd.btn.save">
+                        <button id="btn-save-queue" disabled class="text-xs font-medium text-cream bg-white/5 border border-white/10 px-4 py-2 rounded-lg hover:bg-white/10 shadow-sm transition transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-orange outline-none" data-i18n="cmd.btn.save">
                             Save Sequence
                         </button>
                     </div>
-                    <button id="btn-add-cmd" class="bg-navy hover:bg-navy-dark disabled:bg-cream-dark disabled:text-navy/40 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-2 transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-navy focus-visible:outline-none">
+                    <button id="btn-add-cmd" class="bg-orange hover:bg-orange-dark disabled:bg-white/5 disabled:text-cream/30 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-2 transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none">
                         <svg aria-hidden="true" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         <span data-i18n="cmd.btn.add">Push to Array</span>
                     </button>
@@ -225,33 +225,33 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 <!-- Global Pause -->
-                <div class="bg-white p-5 rounded-2xl border border-cream-dark shadow-sm flex flex-col justify-between hover:border-orange/40 transition-colors">
+                <div class="bg-gradient-to-tr from-navy to-navy-light p-5 rounded-2xl border border-white/10 shadow-lg shadow-navy/30 flex flex-col justify-between hover:border-orange/40 transition-colors">
                     <div>
                         <div class="flex items-center gap-2 mb-1">
                             <svg aria-hidden="true" class="w-4 h-4 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <h3 class="text-sm font-semibold text-navy" data-i18n="global.pause.title">Global Pause (Key 04)</h3>
+                            <h3 class="text-sm font-semibold text-cream" data-i18n="global.pause.title">Global Pause (Key 04)</h3>
                         </div>
-                        <p class="text-xs text-navy/50 mb-4 h-8" data-i18n="global.pause.desc">Fixed delay automatically injected between all lines in the motor queue.</p>
+                        <p class="text-xs text-cream/50 mb-4 h-8" data-i18n="global.pause.desc">Fixed delay automatically injected between all lines in the motor queue.</p>
                         <div class="flex gap-2">
                             <input type="number" aria-label="Global pause time" name="inp_global_pause" autocomplete="off" spellcheck="false" id="inp-global-pause"
                                 data-i18n-placeholder="global.pause.placeholder"
                                 placeholder="e.g. 1000"
-                                class="w-full tabular-nums font-mono text-sm px-3 py-2 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-navy bg-white">
-                            <button id="btn-set-pause" disabled class="disabled:bg-cream/50 disabled:text-navy/30 disabled:border-cream-dark disabled:cursor-not-allowed bg-white hover:bg-cream/60 text-navy text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-cream-dark shadow-sm cursor-pointer whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none" data-i18n="global.pause.btn">Apply</button>
+                                class="w-full tabular-nums font-mono text-sm px-3 py-2 rounded-lg border border-white/10 focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none transition shadow-sm text-cream bg-black/20 placeholder:text-cream/30">
+                            <button id="btn-set-pause" disabled class="disabled:bg-white/5 disabled:text-cream/30 disabled:border-transparent disabled:cursor-not-allowed bg-white/10 hover:bg-white/20 text-cream text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-white/10 shadow-sm cursor-pointer whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none" data-i18n="global.pause.btn">Apply</button>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Loop Master -->
-                <div class="bg-white p-5 rounded-2xl border border-cream-dark shadow-sm flex flex-col justify-between hover:border-orange/40 transition-colors">
+                <div class="bg-gradient-to-tr from-navy to-navy-light p-5 rounded-2xl border border-white/10 shadow-lg shadow-navy/30 flex flex-col justify-between hover:border-orange/40 transition-colors">
                     <div>
                         <div class="flex items-center gap-2 mb-1">
                             <svg aria-hidden="true" class="w-4 h-4 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            <h3 class="text-sm font-semibold text-navy" data-i18n="global.loop.title">Loop Master (Key 03)</h3>
+                            <h3 class="text-sm font-semibold text-cream" data-i18n="global.loop.title">Loop Master (Key 03)</h3>
                         </div>
-                        <p class="text-xs text-navy/50 mb-4 h-8" data-i18n="global.loop.desc">Overrides the queue to restart infinitely from zero after completing.</p>
-                        <button id="btn-repeat-all" disabled class="w-full disabled:bg-cream/50 disabled:text-navy/30 disabled:border-cream-dark disabled:cursor-not-allowed bg-white hover:bg-cream/60 text-navy text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-cream-dark shadow-sm cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none">
-                            <span class="w-2 h-2 rounded-full bg-cream-dark transition-colors" id="loop-dot" aria-hidden="true"></span>
+                        <p class="text-xs text-cream/50 mb-4 h-8" data-i18n="global.loop.desc">Overrides the queue to restart infinitely from zero after completing.</p>
+                        <button id="btn-repeat-all" disabled class="w-full disabled:bg-white/5 disabled:text-cream/30 disabled:border-transparent disabled:cursor-not-allowed bg-white/10 hover:bg-white/20 text-cream text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-white/10 shadow-sm cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-orange focus-visible:outline-none">
+                            <span class="w-2 h-2 rounded-full bg-white/20 transition-colors" id="loop-dot" aria-hidden="true"></span>
                             <span data-i18n="global.loop.btn">Activate Queue RepeatAll</span>
                         </button>
                     </div>

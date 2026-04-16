@@ -329,13 +329,13 @@
             const btn1 = document.getElementById('btn-motor-1');
             const btn2 = document.getElementById('btn-motor-2');
             const base = 'motor-selector flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 font-semibold text-sm transition-all cursor-pointer shadow-sm focus-visible:ring-2 outline-none';
-            const inactive = `${base} border-cream-dark bg-white text-navy/50 hover:border-orange/40 hover:bg-cream/40 focus-visible:ring-orange`;
+            const inactive = `${base} border-white/10 bg-black/20 text-cream/50 hover:border-orange/30 hover:bg-white/5 focus-visible:ring-orange`;
 
             if (num === 1) {
-                btn1.className = `${base} active-motor border-orange bg-orange/10 text-orange-dark focus-visible:ring-orange`;
+                btn1.className = `${base} active-motor border-orange bg-orange/20 text-orange focus-visible:ring-orange`;
                 btn2.className = inactive;
             } else {
-                btn2.className = `${base} active-motor border-amber bg-amber/10 text-amber-dark focus-visible:ring-amber`;
+                btn2.className = `${base} active-motor border-amber bg-amber/20 text-amber focus-visible:ring-amber`;
                 btn1.className = inactive;
             }
         }
@@ -681,14 +681,14 @@
             const dot = document.getElementById('loop-dot');
 
             if (repeatOn) {
-                dot.classList.replace('bg-cream-dark', 'bg-emerald-500');
-                btn.classList.add('border-amber', 'bg-amber/10', 'text-amber-dark');
-                btn.classList.remove('border-cream-dark', 'bg-white', 'text-navy');
+                dot.classList.replace('bg-white/20', 'bg-amber');
+                btn.classList.add('border-amber', 'bg-amber/20', 'text-amber');
+                btn.classList.remove('border-white/10', 'bg-white/10', 'text-cream');
                 showToast(t('toast.loop.on'), 'info');
             } else {
-                dot.classList.replace('bg-emerald-500', 'bg-cream-dark');
-                btn.classList.remove('border-amber', 'bg-amber/10', 'text-amber-dark');
-                btn.classList.add('border-cream-dark', 'bg-white', 'text-navy');
+                dot.classList.replace('bg-amber', 'bg-white/20');
+                btn.classList.remove('border-amber', 'bg-amber/20', 'text-amber');
+                btn.classList.add('border-white/10', 'bg-white/10', 'text-cream');
                 showToast(t('toast.loop.off'), 'info');
             }
         });
