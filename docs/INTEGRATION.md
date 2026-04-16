@@ -38,6 +38,8 @@ Disparam ações imediatas no sistema de estados.
 | `03:1` | **REPEAT ON** | Ativa `repetir_todas_linhas = true`. Envia resposta `B4`. |
 | `03:0` | **REPEAT OFF** | Desativa `repetir_todas_linhas = false`. Envia resposta `B6`. |
 | `04:X` | **PAUSE GLOBAL** | Define pausa global (ms) entre todas as transições de linha. Ex: `04:500` |
+| `16:X` | **ENABLE MOTOR** | Ativa o driver TB6600 do motor X (EN → LOW). Resposta: `B7:X`. |
+| `17:X` | **DISABLE MOTOR** | Desativa o driver TB6600 do motor X (EN → HIGH, eixo livre). Resposta: `B8:X`. |
 
 ### 📥 Parâmetros de Motor (Web → Arduino)
 
@@ -80,6 +82,8 @@ Enviados como string única com múltiplos campos separados por vírgula.
 | `E1` | **Queue Empty** | RUN rejeitado — fila vazia, nada a executar. |
 | `E2` | **Queue Overflow** | Limite de 20 slots atingido na SRAM. Use STOP para limpar. |
 | `E3` | **Syntax Error** | Parâmetros obrigatórios (`10` ou `11`) ausentes no pacote. |
+| `B7:X` | **Motor Enabled** | Driver do Motor X habilitado (EN → LOW). Torque de retenção ativo. |
+| `B8:X` | **Motor Disabled** | Driver do Motor X desabilitado (EN → HIGH). Eixo livre. |
 
 ### 🛰️ Telemetria Passiva (H8P V2)
 
@@ -153,6 +157,18 @@ Ao carregar uma sequência salva do `localStorage`, a interface executa limpeza 
 3. UI envia cada comando da sequência com delay de 150ms entre eles.
 
 Isso previne duplicidade ou acúmulo de linhas residuais na SRAM.
+
+### Enable/Disable Motor (Controle do Driver)
+
+Os toggle switches integrados ao seletor de motor disparam comandos de controle do driver:
+
+- **Checkbox marcado** → UI envia `16:X` (Enable Motor X: EN → LOW).
+- **Checkbox desmarcado** → UI envia `17:X` (Disable Motor X: EN → HIGH).
+
+O firmware confirma com `B7:X` ou `B8:X`, e a telemetria atualiza o estado para "Driver ON" ou "Driver OFF".
+
+> [!NOTE]
+> O TB6600 usa lógica de **enable ativo-baixo**: `LOW` habilita o driver (torque de retenção ativo), `HIGH` desabilita (eixo livre).
 
 ---
 

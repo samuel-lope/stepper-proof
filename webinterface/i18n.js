@@ -49,6 +49,8 @@ const translations = {
         'hw.panel.title':               'Hardware Panel',
         'hw.step.btn':                  'Fire Single Step',
         'hw.enable.title':              'Enable/Disable motor driver',
+        'tel.driver.on':                'Driver ON',
+        'tel.driver.off':               'Driver OFF',
 
         // ── Alert History Floating Button ─────────────────────────────────
         'alerts.btn.title':             'Alert History',
@@ -191,6 +193,8 @@ const translations = {
         'hw.panel.title':               'Painel Hardware',
         'hw.step.btn':                  'Disparar Passo Único',
         'hw.enable.title':              'Habilitar/Desabilitar driver do motor',
+        'tel.driver.on':                'Driver ON',
+        'tel.driver.off':               'Driver OFF',
 
         // ── Alert History Floating Button ─────────────────────────────────
         'alerts.btn.title':             'Histórico de Alertas',

@@ -13,8 +13,10 @@ O sistema é gerenciado por uma interface web moderna que se comunica diretament
 - **Zero Bloqueio (Non-blocking):** A `loop()` roda livremente via máquina de estados. Sem `delay()`, com processamento paralelo de ambos os motores.
 - **Segurança de Hardware (Atomic & Safe):** `STOP` executado em bloco atômico (`cli`/`sei`). *Safety Clamp* de 50µs previne travamento do MCU.
 - **Otimização de Memória Extrema:** Protocolo H8P inteiramente em hexadecimal de 8 bits — zero strings armazenadas na SRAM.
+- **Controle de Driver (Enable/Disable):** Comandos `16` e `17` permitem ativar ou desativar o driver TB6600 de cada motor individualmente em tempo real, com feedback visual na telemetria.
 - **Interface Web Profissional:** Dashboard com Tailwind CSS, Telemetria ao Vivo por motor (M1 e M2), sistema de Toasts por criticidade e Command Builder visual.
-- **Telemetria em Tempo Real:** Painel dual que monitora SRAM, linha ativa e estado de execução de cada motor individualmente.
+- **Internacionalização (i18n):** Interface disponível em Inglês (EN-US) e Português (PT-BR) com troca instantânea via toggle no header. Idioma salvo em `localStorage`.
+- **Telemetria em Tempo Real:** Painel dual que monitora SRAM, linha ativa, estado do driver e estado de execução de cada motor individualmente.
 
 ---
 
@@ -108,6 +110,8 @@ Para máxima performance e economia de SRAM no AVR, a comunicação usa chaves h
 | `13:X` | **REPEAT** — Ciclos de repetição; `0` = infinito *(opcional, default 1)*. |
 | `14:X` | **PAUSE** — Pausa pós-execução em ms *(opcional)*. |
 | `15:X` | **MOTOR** — Seleciona o motor alvo: `1` ou `2` *(opcional, default 1)*. |
+| `16:X` | **ENABLE MOTOR** — Ativa o driver TB6600 do motor X (EN → LOW). |
+| `17:X` | **DISABLE MOTOR** — Desativa o driver TB6600 do motor X (EN → HIGH, eixo livre). |
 
 **Exemplo — Motor 2, 1600 passos, intervalo 500µs, direção 1:**
 
@@ -156,6 +160,18 @@ O botão **Mestre de Loop** na interface é um toggle visual. O estado só é tr
 - Toggle **OFF** → envia `03:0` (desativa loop) antes de `01`
 
 Isso garante que o MCU sempre saiba o estado correto do loop antes de iniciar a execução.
+
+### Controle do Driver (Enable/Disable)
+
+Cada motor possui um toggle switch na interface, integrado ao seletor de motor "Target Motor":
+
+- **Checkbox marcado** (verde) → envia `16:X` (Enable Motor: EN → LOW, torque de retenção ativo).
+- **Checkbox desmarcado** (cinza) → envia `17:X` (Disable Motor: EN → HIGH, eixo livre).
+
+O firmware responde com `B7:X` (habilitado) ou `B8:X` (desabilitado), e a telemetria exibe o estado "Driver ON" ou "Driver OFF" em tempo real.
+
+> [!NOTE]
+> O TB6600 usa **enable ativo-baixo** — `LOW` habilita o driver e `HIGH` desabilita.
 
 ---
 

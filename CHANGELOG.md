@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-04-16
+
+### Added
+- **Internacionalização (i18n)**: Engine de tradução dependency-free (`i18n.js`) com suporte a EN-US e PT-BR. Todas as strings da interface são carregadas dinamicamente via `data-i18n` attributes e função `t('key', params)`. Idioma salvo em `localStorage`.
+- **Toggle de Idioma**: Switch EN/PT no header da interface com troca instantânea de todos os textos, incluindo tooltips e ARIA labels.
+- **Comando `16:X` (Enable Motor)**: Novo comando do firmware que ativa o driver TB6600 do motor selecionado (EN → LOW). Sintaxe: `16:1` para M1, `16:2` para M2.
+- **Comando `17:X` (Disable Motor)**: Novo comando que desativa o driver TB6600 (EN → HIGH, eixo livre). Sintaxe: `17:1` para M1, `17:2` para M2.
+- **Respostas `B7:X` e `B8:X`**: Confirmações do firmware — `B7:X` = Driver do Motor X habilitado, `B8:X` = Driver desabilitado.
+- **Toggle de Enable/Disable na UI**: Checkboxes integrados ao seletor de motor "Target Motor". Checkbox marcado = motor habilitado (16:X), desmarcado = desabilitado (17:X).
+- **Feedback Visual na Telemetria**: O painel Live Telemetry agora exibe "Driver ON" (verde) ou "Driver OFF" (vermelho) em tempo real quando o estado do driver muda.
+
+### Changed
+- **Seletor de Motor refatorado**: Botões "Motor 1" / "Motor 2" agora incluem toggle switches laterais para controle do driver, eliminando a seção separada "Driver EN".
+- **Evento `langchange`**: Custom event disparado ao trocar de idioma, permitindo que elementos dinâmicos (status de conexão, botão conectar) atualizem seus textos sem perder o estado atual.
+
+### Fixed
+- **Bug de estado ao trocar idioma**: Corrigido o problema onde o indicador de conexão e botão "Conectar" eram resetados para "OFFLINE" ao trocar de idioma, mesmo com hardware conectado. Elementos dinâmicos agora usam `langchange` event listener ao invés de `data-i18n`.
+- **Bug de botões retraídos**: Corrigido o colapso dos botões "Motor 1"/"Motor 2" ao clicar na seleção. A classe `flex-1` estava ausente na string `base` da função `selectMotor()`.
+
+---
+
 ## [1.3.1] - 2026-04-15
 
 ### Added

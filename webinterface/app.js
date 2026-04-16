@@ -214,11 +214,27 @@
             if (line.startsWith('B2:'))
                 return { text: t('hw.B2', { ms: line.substring(3) }), type: 'info' };
 
-            if (line.startsWith('B7:'))
-                return { text: t('hw.B7', { motor: 'M' + line.substring(3) }), type: 'success' };
+            if (line.startsWith('B7:')) {
+                const motorNum = line.substring(3);
+                const stId = motorNum === '2' ? 'tel-state-m2' : 'tel-state-m1';
+                const st = document.getElementById(stId);
+                if (st) {
+                    st.textContent = t('tel.driver.on');
+                    st.className = 'text-[12px] font-mono text-emerald-400 font-semibold truncate';
+                }
+                return { text: t('hw.B7', { motor: 'M' + motorNum }), type: 'success' };
+            }
 
-            if (line.startsWith('B8:'))
-                return { text: t('hw.B8', { motor: 'M' + line.substring(3) }), type: 'warning' };
+            if (line.startsWith('B8:')) {
+                const motorNum = line.substring(3);
+                const stId = motorNum === '2' ? 'tel-state-m2' : 'tel-state-m1';
+                const st = document.getElementById(stId);
+                if (st) {
+                    st.textContent = t('tel.driver.off');
+                    st.className = 'text-[12px] font-mono text-brand/70 font-semibold truncate';
+                }
+                return { text: t('hw.B8', { motor: 'M' + motorNum }), type: 'warning' };
+            }
 
             if (line.startsWith('C0:')) {
                 const parts = line.split(',');
