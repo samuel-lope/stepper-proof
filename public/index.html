@@ -94,13 +94,13 @@
     </header>
 
     <!-- Main Board -->
-    <main class="flex-1 w-full max-w-7xl mx-auto p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <main class="flex-1 w-full max-w-7xl mx-auto p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         <!-- Left Column: Command & Settings Builder -->
-        <section class="lg:col-span-8 flex flex-col gap-6">
+        <section class="lg:col-span-8 flex flex-col">
             
             <!-- Command Builder Card -->
-            <div class="bg-gradient-to-tr from-navy to-navy-light rounded-2xl shadow-lg shadow-navy/30 border border-white/10 overflow-hidden group">
+            <div class="bg-gradient-to-tr from-navy to-navy-light rounded-2xl shadow-lg shadow-navy/30 border border-white/10 overflow-hidden group flex flex-col h-full">
                 <div class="px-6 py-5 border-b border-white/10 bg-black/20 flex justify-between items-center">
                     <div>
                         <h2 class="text-base font-semibold text-cream" data-i18n="cmd.card.title">New Movement Command</h2>
@@ -229,10 +229,10 @@
         </section>
 
         <!-- Right Column: Massive Action Controls -->
-        <section class="lg:col-span-4 flex flex-col gap-4 sticky top-24">
+        <section class="lg:col-span-4 flex flex-col justify-between h-full gap-4">
             
             <!-- Live Telemetry Card (Dual Motors) -->
-            <div class="bg-gradient-to-tr from-navy to-navy-light p-5 rounded-2xl shadow-lg shadow-navy/30 border border-white/10 flex flex-col mb-1">
+            <div class="bg-gradient-to-tr from-navy to-navy-light p-5 rounded-2xl shadow-lg shadow-navy/30 border border-white/10 flex flex-col">
                 <div class="flex items-center gap-2 mb-4">
                     <div class="flex h-2.5 w-2.5 relative">
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber opacity-75"></span>
@@ -292,7 +292,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3 mt-1">
+            <div class="grid grid-cols-2 gap-3">
                 <!-- Emergency Stop -->
                 <button id="btn-stop" disabled class="group disabled:opacity-50 disabled:cursor-not-allowed bg-brand/90 hover:bg-brand text-white font-bold py-4 px-3 rounded-xl shadow-[0_4px_10px_rgba(214,40,40,0.3)] transition transform active:scale-[98%] cursor-pointer flex flex-col items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:outline-none">
                     <span class="text-[13px] tracking-wide text-center uppercase" style="text-shadow: 0 1px 2px rgba(0,0,0,0.2);">Emergency Stop</span>
