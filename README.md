@@ -60,7 +60,7 @@ Conecte os dois Drivers TB6600 ao Arduino conforme as tabelas abaixo:
 
 A Web Serial API exige um contexto seguro (`https://` ou `localhost`). Não é possível abrir o `index.html` diretamente como `file:///`.
 
-1. No VS Code, instale a extensão **Live Server** e clique em **Go Live** no arquivo `webinterface/index.html`.
+1. No VS Code, instale a extensão **Live Server** e clique em **Go Live** no arquivo `public/index.html`.
 2. Acesse via `http://localhost:5500` (ou a porta gerada).
 3. Use **Google Chrome** ou **Microsoft Edge** — Safari e Firefox não suportam Web Serial API nativamente.
 4. Clique em **Conectar Serial**, selecione a porta do Arduino, escolha o motor alvo e adicione comandos à fila!

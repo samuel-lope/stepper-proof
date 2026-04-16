@@ -3,9 +3,9 @@
 
 ## Core Files
 - [stepcontrol/stepcontrol.ino]: Firmware principal em C++/AVR. Timer1 Dual-Channel (COMPA + COMPB) com dois pipelines paralelos de motor independentes. Comandos 01-04 (fluxo), 10-15 (parâmetros de motor), 16-17 (controle de driver).
-- [webinterface/index.html]: Interface de controle (Vanilla JS). Web Serial, Command Builder com seletor de motor + toggle de driver, Telemetria Dual M1/M2 e Protocolo H8P.
-- [webinterface/i18n.js]: Engine de internacionalização dependency-free. Dicionários EN-US e PT-BR. Função `t(key, params)` com interpolação de variáveis. Event `langchange` para elementos dinâmicos.
-- [webinterface/app.js]: Lógica principal da interface — conexão serial, construção de comandos, tradução de respostas hex, controle de driver e telemetria.
+- [public/index.html]: Interface de controle (Vanilla JS). Web Serial, Command Builder com seletor de motor + toggle de driver, Telemetria Dual M1/M2 e Protocolo H8P.
+- [public/i18n.js]: Engine de internacionalização dependency-free. Dicionários EN-US e PT-BR. Função `t(key, params)` com interpolação de variáveis. Event `langchange` para elementos dinâmicos.
+- [public/app.js]: Lógica principal da interface — conexão serial, construção de comandos, tradução de respostas hex, controle de driver e telemetria.
 - [docs/INTEGRATION.md]: Especificação completa do protocolo H8P — todos os comandos, respostas, fluxos de dados e detalhes internos do firmware.
 - [CHANGELOG.md]: Histórico de versões do projeto.
 
