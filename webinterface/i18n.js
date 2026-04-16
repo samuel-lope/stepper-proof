@@ -48,6 +48,10 @@ const translations = {
         // ── Telemetry & Hardware Panel ────────────────────────────────────
         'hw.panel.title':               'Hardware Panel',
         'hw.step.btn':                  'Fire Single Step',
+        'hw.enable.m1':                 'Enable M1',
+        'hw.disable.m1':                'Disable M1',
+        'hw.enable.m2':                 'Enable M2',
+        'hw.disable.m2':                'Disable M2',
 
         // ── Alert History Floating Button ─────────────────────────────────
         'alerts.btn.title':             'Alert History',
@@ -115,6 +119,8 @@ const translations = {
         'toast.alerts.cleared':         'Alert log cleared.',
         'toast.lib.cleared':            'Library reset.',
         'toast.vel.error':              'Error: Firmware will reject. Minimum velocity = 50µs.',
+        'toast.motor.enabled':          '⚡ Motor {motor} driver ENABLED (EN → LOW).',
+        'toast.motor.disabled':         '🔌 Motor {motor} driver DISABLED (EN → HIGH).',
 
         // ── TX Decorators (sendRawString) ─────────────────────────────────
         'tx.run':                       'Injected Signal: 01 [EXECUTE FULL QUEUE]',
@@ -122,6 +128,8 @@ const translations = {
         'tx.loop':                      'Injected Signal: 03 [CLOSE CIRCUIT IN LOOP]',
         'tx.pause':                     'Injected Signal: 04 [OVERRIDE GLOBAL PAUSE → {ms}ms]',
         'tx.packet':                    'Sending H8P Hex packet… [{p0}, {p1}]',
+        'tx.enable':                    'Injected Signal: 16 [ENABLE MOTOR {motor}]',
+        'tx.disable':                   'Injected Signal: 17 [DISABLE MOTOR {motor}]',
 
         // ── Hardware Responses (AVR → UI) ─────────────────────────────────
         'hw.A0':        '🔗 [AVR Status]: Hardware paired. Timer1 Dual-Channel synchronized at 16MHz.',
@@ -135,6 +143,8 @@ const translations = {
         'hw.E2':        '🔴 [Overflow]: SRAM reached safe limit (20 slots). Fire a STOP (02) to clear memory buffer.',
         'hw.E3':        '🛑 [Safety Clamp Active]: Rejected! The interval entered would cause freezing. Minimum = 50µs.',
         'hw.B2':        '⏳ [Delay Handler]: Global Pause Modifier injected for {ms}ms fixed.',
+        'hw.B7':        '⚡ [Driver ON]: Motor {motor} driver enabled. Holding torque active.',
+        'hw.B8':        '🔌 [Driver OFF]: Motor {motor} driver disabled. Free-spinning.',
         'hw.allocated': '💾 [Allocated]: Slot #{idx} [{motor}] written to RAM → ({details})',
         'hw.step.unit': 'Steps',
         'hw.int.unit':  'int.',
@@ -183,6 +193,10 @@ const translations = {
         // ── Telemetry & Hardware Panel ────────────────────────────────────
         'hw.panel.title':               'Painel Hardware',
         'hw.step.btn':                  'Disparar Passo Único',
+        'hw.enable.m1':                 'Habilitar M1',
+        'hw.disable.m1':                'Desabilitar M1',
+        'hw.enable.m2':                 'Habilitar M2',
+        'hw.disable.m2':                'Desabilitar M2',
 
         // ── Alert History Floating Button ─────────────────────────────────
         'alerts.btn.title':             'Histórico de Alertas',
@@ -250,6 +264,8 @@ const translations = {
         'toast.alerts.cleared':         'Log de alertas esvaziado.',
         'toast.lib.cleared':            'Biblioteca resetada.',
         'toast.vel.error':              'Erro: O firmware rejeitará. Velocity mínimo = 50µs.',
+        'toast.motor.enabled':          '⚡ Driver do Motor {motor} HABILITADO (EN → LOW).',
+        'toast.motor.disabled':         '🔌 Driver do Motor {motor} DESABILITADO (EN → HIGH).',
 
         // ── TX Decorators (sendRawString) ─────────────────────────────────
         'tx.run':                       'Injetado Sinal: 01 [EXECUTAR FILA INTEIRA]',
@@ -257,6 +273,8 @@ const translations = {
         'tx.loop':                      'Injetado Sinal: 03 [FECHAR CIRCUITO EM LOOP]',
         'tx.pause':                     'Injetado Sinal: 04 [SUBRESCREVER PAUSA GLOBAL → {ms}ms]',
         'tx.packet':                    'Enviando pacote Hex H8P… [{p0}, {p1}]',
+        'tx.enable':                    'Injetado Sinal: 16 [HABILITAR MOTOR {motor}]',
+        'tx.disable':                   'Injetado Sinal: 17 [DESABILITAR MOTOR {motor}]',
 
         // ── Hardware Responses (AVR → UI) ─────────────────────────────────
         'hw.A0':        '🔗 [AVR Status]: Hardware pareado. Timer1 Dual-Channel sincronizado a 16MHz.',
@@ -270,6 +288,8 @@ const translations = {
         'hw.E2':        '🔴 [Overflow]: A SRAM atingiu o limite seguro (20 slots). Dispare um STOP (02) para limpar o buffer de memória.',
         'hw.E3':        '🛑 [Safety Clamp Ativo]: Rejeitado! O intervalo inserido causará congelamento. Minimum = 50µs.',
         'hw.B2':        '⏳ [Delay Handler]: Modificador Global de Pausas injetado para {ms}ms fixos.',
+        'hw.B7':        '⚡ [Driver ON]: Driver do Motor {motor} habilitado. Torque de retenção ativo.',
+        'hw.B8':        '🔌 [Driver OFF]: Driver do Motor {motor} desabilitado. Eixo livre.',
         'hw.allocated': '💾 [Alocado]: Slot N° {idx} [{motor}] gravado na RAM → ({details})',
         'hw.step.unit': 'Passos',
         'hw.int.unit':  'int.',

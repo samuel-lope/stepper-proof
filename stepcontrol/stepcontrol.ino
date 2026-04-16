@@ -16,6 +16,8 @@
  * 13 : repeat    (Opcional - Repetições da linha. 0 = infinito)
  * 14 : pause     (Opcional - Pausa em ms após a linha)
  * 15 : motor     (Opcional - Motor Alvo 1 ou 2. Se vazio, motor 1)
+ * 16 : enableMotor  (Habilita driver do motor. Ex: 16:1 ou 16:2 — EN LOW)
+ * 17 : disableMotor (Desabilita driver do motor. Ex: 17:1 ou 17:2 — EN HIGH)
  *
  * Exemplo de envio via Serial (Motor 2, 1600 passos, vel 500, dir 1): 
  * 10:1600,11:500,12:1,15:2
@@ -28,6 +30,8 @@
  * B4 : Modo repeatAll ATIVADO
  * B5 : Fila executada com sucesso
  * B6 : Modo repeatAll DESATIVADO
+ * B7 : Motor habilitado (EN = LOW)
+ * B8 : Motor desabilitado (EN = HIGH)
  * C0 : Linha salva com sucesso (Retorna índice e parâmetros incluindo Motor)
  * C1 : [TELEMETRIA] Status de Slot na Fila (uso RAM)
  * D0 : [TELEMETRIA] Linha ativada pelos Optoacopladores do Motor 
@@ -382,7 +386,19 @@ void interpretarComando(char* linha) {
                 else if (chave == 0x12) { cmd.dir = valor; eh_parametro = true; }
                 else if (chave == 0x13) { cmd.repeat = valor; eh_parametro = true; }
                 else if (chave == 0x14) { cmd.pause_ms = valor; eh_parametro = true; }
-                else if (chave == 0x15) { cmd.motor_id = valor; eh_parametro = true; } 
+                else if (chave == 0x15) { cmd.motor_id = valor; eh_parametro = true; }
+                else if (chave == 0x16) { // enableMotor (EN = LOW, ativo baixo TB6600)
+                    if (valor == 1) { PORTB &= ~(1 << M1_EN_PIN); }
+                    else if (valor == 2) { PORTD &= ~(1 << M2_EN_PIN); }
+                    Serial.print(0xB7, HEX); Serial.print(':'); Serial.println(valor);
+                    return;
+                }
+                else if (chave == 0x17) { // disableMotor (EN = HIGH)
+                    if (valor == 1) { PORTB |= (1 << M1_EN_PIN); }
+                    else if (valor == 2) { PORTD |= (1 << M2_EN_PIN); }
+                    Serial.print(0xB8, HEX); Serial.print(':'); Serial.println(valor);
+                    return;
+                }
             }
         }
         par = strtok_r(NULL, ",", &ponteiro_virgula);

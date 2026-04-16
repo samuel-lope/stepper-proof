@@ -19,7 +19,9 @@
 
         const controls = [
             'btn-run', 'btn-stop', 'btn-run-one',
-            'btn-set-pause', 'btn-repeat-all'
+            'btn-set-pause', 'btn-repeat-all',
+            'btn-enable-m1', 'btn-disable-m1',
+            'btn-enable-m2', 'btn-disable-m2'
         ].map(id => document.getElementById(id));
 
         // ── Notification System ───────────────────────────────────────────────
@@ -214,6 +216,12 @@
             if (line.startsWith('B2:'))
                 return { text: t('hw.B2', { ms: line.substring(3) }), type: 'info' };
 
+            if (line.startsWith('B7:'))
+                return { text: t('hw.B7', { motor: 'M' + line.substring(3) }), type: 'success' };
+
+            if (line.startsWith('B8:'))
+                return { text: t('hw.B8', { motor: 'M' + line.substring(3) }), type: 'warning' };
+
             if (line.startsWith('C0:')) {
                 const parts = line.split(',');
                 const idx   = parts[0].split(':')[1];
@@ -282,6 +290,8 @@
                 const parts = commandString.split(',');
                 displayCmd = t('tx.packet', { p0: parts[0], p1: parts[1] });
             }
+            else if (commandString.startsWith('16:'))  displayCmd = t('tx.enable',  { motor: 'M' + commandString.split(':')[1] });
+            else if (commandString.startsWith('17:'))  displayCmd = t('tx.disable', { motor: 'M' + commandString.split(':')[1] });
             showToast(`TX > ${displayCmd}`, 'out');
             return true;
         }
@@ -637,6 +647,13 @@
             const pGlobal = document.getElementById('inp-global-pause').value;
             if (pGlobal !== '') sendCommand(`04:${pGlobal}`);
         });
+
+        // ── Motor Driver Enable/Disable ────────────────────────────────────────
+
+        document.getElementById('btn-enable-m1').addEventListener('click',  () => sendCommand('16:1'));
+        document.getElementById('btn-disable-m1').addEventListener('click', () => sendCommand('17:1'));
+        document.getElementById('btn-enable-m2').addEventListener('click',  () => sendCommand('16:2'));
+        document.getElementById('btn-disable-m2').addEventListener('click', () => sendCommand('17:2'));
 
         // ── RepeatAll Toggle ──────────────────────────────────────────────────
 
