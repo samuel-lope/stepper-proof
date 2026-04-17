@@ -19,7 +19,9 @@
 
         const controls = [
             'btn-run', 'btn-stop', 'btn-run-one',
-            'btn-set-pause', 'btn-repeat-all'
+            'btn-set-pause', 'btn-repeat-all',
+            'btn-save-preset', 'btn-fast-0', 'btn-fast-1',
+            'btn-fast-2', 'btn-fast-3', 'btn-fast-4'
         ].map(id => document.getElementById(id));
 
         // ── Notification System ───────────────────────────────────────────────
@@ -362,6 +364,23 @@
             return cmd;
         }
 
+        document.getElementById('btn-save-preset').addEventListener('click', async () => {
+            const cmd = buildCommandFromInputs();
+            if (!cmd) return;
+            const slotStr = await showPromptModal("Gravar Preset EEPROM (Slot 0-4):", "0");
+            if (slotStr === null) return;
+            const idx = parseInt(slotStr.trim());
+            if (isNaN(idx) || idx < 0 || idx > 4) {
+                showToast("Slot inválido. Escolha entre 0 e 4.", "error");
+                return;
+            }
+            if (!port) {
+                showToast(t('toast.io.absent'), "error");
+                return;
+            }
+            sendCommand(`19:${idx},${cmd}`);
+        });
+
         document.getElementById('btn-add-cmd').addEventListener('click', () => {
             const cmd = buildCommandFromInputs();
             if (cmd) {
@@ -661,6 +680,12 @@
             const pGlobal = document.getElementById('inp-global-pause').value;
             if (pGlobal !== '') sendCommand(`04:${pGlobal}`);
         });
+
+        for (let i = 0; i < 5; i++) {
+            document.getElementById(`btn-fast-${i}`).addEventListener('click', () => {
+                sendCommand(`18:${i}`);
+            });
+        }
 
         // ── Motor Driver Enable/Disable (Checkboxes) ─────────────────────────
 
