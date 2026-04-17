@@ -40,6 +40,9 @@ Disparam ações imediatas no sistema de estados.
 | `04:X` | **PAUSE GLOBAL** | Define pausa global (ms) entre todas as transições de linha. Ex: `04:500` |
 | `16:X` | **ENABLE MOTOR** | Ativa o driver TB6600 do motor X (EN → LOW). Resposta: `B7:X`. |
 | `17:X` | **DISABLE MOTOR** | Desativa o driver TB6600 do motor X (EN → HIGH, eixo livre). Resposta: `B8:X`. |
+| `18:X` | **FAST ACTION** | Executa instantaneamente o preset gravado no slot `X` (0-4) da EEPROM. Limpa a fila antes. |
+| `19:...` | **WRITE PRESET** | Salva preset no slot `X` da EEPROM. Sintaxe: `19:X,10:step,11:vel...`. |
+| `1A:X` | **READ PRESET** | Solicita parâmetros do slot `X` da EEPROM. Retorna `BA:X,10:step...`. |
 
 ### 📥 Parâmetros de Motor (Web → Arduino)
 
@@ -84,6 +87,9 @@ Enviados como string única com múltiplos campos separados por vírgula.
 | `E3` | **Syntax Error** | Parâmetros obrigatórios (`10` ou `11`) ausentes no pacote. |
 | `B7:X` | **Motor Enabled** | Driver do Motor X habilitado (EN → LOW). Torque de retenção ativo. |
 | `B8:X` | **Motor Disabled** | Driver do Motor X desabilitado (EN → HIGH). Eixo livre. |
+| `B9:X,...` | **Preset Saved** | Confirmação da gravação na EEPROM. Retorna a linha gravada. |
+| `BA:X,...` | **Preset Data** | Resposta do comando de leitura `1A`. Retorna string do respectivo slot. |
+| `E4` | **Invalid Slot** | Rejeição: O slot EEPROM requisitado (X) é maior que o configurado (Max: 4). |
 
 ### 🛰️ Telemetria Passiva (H8P V2)
 
