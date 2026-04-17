@@ -9,7 +9,9 @@ All notable changes to this project will be documented in this file.
 - **Toggle de Idioma**: Switch EN/PT no header da interface com troca instantânea de todos os textos, incluindo tooltips e ARIA labels.
 - **Comando `16:X` (Enable Motor)**: Novo comando do firmware que ativa o driver TB6600 do motor selecionado (EN → LOW). Sintaxe: `16:1` para M1, `16:2` para M2.
 - **Comando `17:X` (Disable Motor)**: Novo comando que desativa o driver TB6600 (EN → HIGH, eixo livre). Sintaxe: `17:1` para M1, `17:2` para M2.
-- **Respostas `B7:X` e `B8:X`**: Confirmações do firmware — `B7:X` = Driver do Motor X habilitado, `B8:X` = Driver desabilitado.
+- **Comando `18:X` (fastAction)**: Novo comando que executa instantaneamente um dos 5 presets gravados na EEPROM (slots 0 a 4). Limpa a fila atual e injeta o preset para execução imediata.
+- **EEPROM Presets (`19`/`1A`)**: Comandos para gerenciar a memória não volátil. `19:X` grava a linha atual no slot X da EEPROM; `1A:X` lê e retorna os parâmetros do slot X via Serial.
+- **Inicialização de Presets**: Sistema de "Magic Byte" que detecta o primeiro boot e carrega automaticamente 5 presets de fábrica variados para M1 e M2 na EEPROM.
 - **Toggle de Enable/Disable na UI**: Checkboxes integrados ao seletor de motor "Target Motor". Checkbox marcado = motor habilitado (16:X), desmarcado = desabilitado (17:X).
 - **Feedback Visual na Telemetria**: O painel Live Telemetry agora exibe "Driver ON" (verde) ou "Driver OFF" (vermelho) em tempo real quando o estado do driver muda.
 

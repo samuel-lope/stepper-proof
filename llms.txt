@@ -2,8 +2,8 @@
 > Controle simultâneo e independente de dois motores de passo TB6600 via Web Serial API.
 
 ## Core Files
-- [stepcontrol/stepcontrol.ino]: Firmware principal em C++/AVR. Timer1 Dual-Channel (COMPA + COMPB) com dois pipelines paralelos de motor independentes. Comandos 01-04 (fluxo), 10-15 (parâmetros de motor), 16-17 (controle de driver).
-- [public/index.html]: Interface de controle (Vanilla JS). Web Serial, Command Builder com seletor de motor + toggle de driver, Telemetria Dual M1/M2 e Protocolo H8P.
+- [stepcontrol/stepcontrol.ino]: Firmware principal em C++/AVR. Timer1 Dual-Channel (COMPA + COMPB) com dois pipelines paralelos de motor independentes. Comandos 01-04 (fluxo), 10-15 (parâmetros de motor), 16-17 (controle de driver), 18 (fastAction via EEPROM), 19-1A (gestão de presets).
+- [public/index.html]: Interface de controle (Vanilla JS). Web Serial, Command Builder com seletor de motor + toggle de driver, Telemetria Dual M1/M2 e Protocolo H8P. Layout otimizado com altura fixa de 600px para o container principal.
 - [public/i18n.js]: Engine de internacionalização dependency-free. Dicionários EN-US e PT-BR. Função `t(key, params)` com interpolação de variáveis. Event `langchange` para elementos dinâmicos.
 - [public/app.js]: Lógica principal da interface — conexão serial, construção de comandos, tradução de respostas hex, controle de driver e telemetria.
 - [docs/INTEGRATION.md]: Especificação completa do protocolo H8P — todos os comandos, respostas, fluxos de dados e detalhes internos do firmware.
@@ -14,6 +14,7 @@
 - **Timer1 Dual-Channel Freerunning**: ISR COMPA para M1, ISR COMPB para M2. Cada canal calcula seu `next_compare` independentemente — zero interferência mútua de timing.
 - **Parâmetro `15` (Motor Alvo)**: Chave que seleciona o motor destino (`1` ou `2`) por slot de fila. Default retrocompatível para Motor 1.
 - **Comandos `16`/`17` (Enable/Disable)**: `16:X` ativa o driver TB6600 do motor X (EN→LOW), `17:X` desativa (EN→HIGH). Respostas: `B7:X` (habilitado), `B8:X` (desabilitado). UI usa checkboxes integrados ao seletor de motor.
+- **EEPROM Fast Action**: Sistema de 5 presets persistentes (`18`, `19`, `1A`) armazenados na memória não volátil, permitindo execução instantânea de movimentos complexos sem recarregar via interface.
 - **Internacionalização (i18n)**: Engine em `i18n.js` com dicionários EN/PT. Strings via `data-i18n` attributes. Custom event `langchange` atualiza elementos dinâmicos sem perder estado de conexão.
 - **`fila_iniciada` Gate Flag**: Flag booleana que previne limpeza prematura da fila antes do comando RUN (`01`). Crítica para correctness da máquina de estados.
 - **Comando `03` Boolean**: `03:1` ativa loop infinito, `03:0` desativa. Sempre enviado antes do `01` pela interface. MCU responde `B4` (ON) ou `B6` (OFF).
@@ -22,4 +23,4 @@
 - **Baud Rate**: 9600 bps.
 - **Queue System**: Fila de até 20 slots na SRAM, roteados por `motor_id` para M1 ou M2.
 - **Live Telemetry Dual**: Monitoramento reativo de SRAM, estado de execução e estado do driver (ON/OFF) de cada motor via sinais passivos `C1`, `D0`, `B3`, `B7`, `B8`.
-- **UI/UX Optimization (Layout)**: Painel escuro (Dark Theme), organização lateral para Live Telemetry em oposição ao construtor de filas e integração do botão de *Single Step* horizontal, evitando totalmente rolagem vertical em navegadores e organizando o fluxo de visão (Golden Ratio 62:38).
+- **UI/UX Optimization (Layout)**: Painel escuro (Dark Theme), organização lateral para Live Telemetry em oposição ao construtor de filas e integração do botão de *Single Step* horizontal, evitando totalmente rolagem vertical em navegadores e organizando o fluxo de visão (Golden Ratio 62:38). Container principal com altura absoluta de 600px.

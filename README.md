@@ -22,9 +22,10 @@ Execute o servidor local apontando para a pasta `public/` (ex: extensão *Live S
 - **Dual Motor Independente:** Controle simultâneo via Timer1 Dual-Channel Freerunning.
 - **Alta Precisão:** Alternância de pinos de até 62,5ns, operando em block atômico (evitando *jitter*).
 - **Protocolo H8P Otimizado:** Uso mínimo de SRAM com array estrito em comunicação 100% de 8-bits hexadecimal.
-- **UI Premium (Tailwind):** Telemetria dual ao vivo, modo escuro em painéis e "Command Builder" minimalista que previne a necessidade de scroll vertical.
+- **UI Premium (Tailwind):** Telemetria dual ao vivo, modo escuro em painéis e "Command Builder" minimalista com altura fixa de 600px que previne a necessidade de scroll vertical.
 - **Segurança de Hardware (Atomic & Safe):** Bloco atômico para interrupção de emergência (`STOP`). *Safety Clamp* de 50µs previne travamento do MCU.
 - **Driver Enable/Disable:** Controle dinâmico `16:X` / `17:X` em tempo real.
+- **Fast Action Presets (EEPROM):** Execução instantânea de 5 comandos pré-gravados via `18:X`, com suporte a gravação dinâmica (`19`) e leitura (`1A`).
 - **Internacionalização (i18n):** Strings dinâmicas em `EN-US` e `PT-BR`.
 
 ## Configuration
