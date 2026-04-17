@@ -94,14 +94,15 @@
     </header>
 
     <!-- Main Board -->
-    <main class="flex-1 w-full max-w-7xl mx-auto p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <main class="flex-1 w-full max-w-7xl mx-auto p-6 md:p-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         
         <!-- Left Column: Command & Settings Builder -->
         <section class="lg:col-span-8 flex flex-col">
             
             <!-- Command Builder Card -->
-            <div class="bg-gradient-to-tr from-navy to-navy-light rounded-2xl shadow-lg shadow-navy/30 border border-white/10 overflow-hidden group flex flex-col h-full">
-                <div class="px-6 py-5 border-b border-white/10 bg-black/20 flex justify-between items-center">
+            <div class="bg-gradient-to-tr from-navy to-navy-light rounded-2xl shadow-lg shadow-navy/30 border border-white/10 overflow-hidden group flex flex-col h-[600px]">
+                <div class="px-6 py-5 border-b border-white/10 bg-black/20 flex justify-between items-center shrink-0">
                     <div>
                         <h2 class="text-base font-semibold text-cream" data-i18n="cmd.card.title">New Movement Command</h2>
                         <p class="text-sm text-cream/60 mt-0.5" data-i18n="cmd.card.subtitle">Configure technical parameters to inject into the microcontroller queue.</p>
@@ -109,7 +110,7 @@
                     <span class="px-2.5 py-1 bg-orange/20 text-orange text-xs font-mono font-medium rounded-md border border-orange/30 hidden md:block">H8P Protocol</span>
                 </div>
                 
-                <div class="p-6">
+                <div class="p-6 flex-1 flex flex-col justify-center">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <!-- Motor Selector -->
                         <div class="md:col-span-2 space-y-1.5">
@@ -205,7 +206,7 @@
                 </div>
                 
                 <!-- Card Footer -->
-                <div class="px-6 py-4 bg-black/20 border-t border-white/10 flex flex-wrap justify-between items-center gap-4">
+                <div class="px-6 py-4 bg-black/20 border-t border-white/10 flex flex-wrap justify-between items-center gap-4 shrink-0">
                     <div class="flex gap-2">
                         <button id="btn-clear-queue" class="text-xs font-medium text-cream/60 hover:text-red-400 px-3 py-2 rounded-lg hover:bg-red-400/10 transition-colors focus-visible:ring-2 focus-visible:ring-red-400 outline-none" data-i18n="cmd.btn.clear">
                             Clear Current Queue
@@ -307,6 +308,7 @@
             </div>
         </section>
 
+        </div>
     </main>
 
     <!-- Alert History Floating Button -->

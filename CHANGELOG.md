@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Seletor de Motor refatorado**: Botões "Motor 1" / "Motor 2" agora incluem toggle switches laterais para controle do driver, eliminando a seção separada "Driver EN".
 - **Evento `langchange`**: Custom event disparado ao trocar de idioma, permitindo que elementos dinâmicos (status de conexão, botão conectar) atualizem seus textos sem perder o estado atual.
+- **Alinhamento e Layout**: Refatoração do layout da `main` no arquivo `index.html`. O grid primário foi isolado da altura de tela esticada para que a coluna da direita alinhe-se e distribua-se verticalmente baseada na proporção do painel principal ("New Movement Command", agora com altura fixa absoluta de 600px).
 
 ### Fixed
 - **Alinhamento de Baud Rate**: Corrigido o baud rate padrão no componente `<select>` da interface web de 115200 para **9600 bps**, alinhando-o com a especificação do firmware e evitando falhas de conexão inicial para novos usuários.
