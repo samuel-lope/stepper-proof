@@ -23,4 +23,8 @@
 - **Baud Rate**: 9600 bps.
 - **Queue System**: Fila de até 20 slots na SRAM, roteados por `motor_id` para M1 ou M2.
 - **Live Telemetry Dual**: Monitoramento reativo de SRAM, estado de execução e estado do driver (ON/OFF) de cada motor via sinais passivos `C1`, `D0`, `B3`, `B7`, `B8`.
+- **Configurações & Customização**: Sistema de *Settings* (`modal-settings`) com persistência em `localStorage`.
+    - `stepper_custom_i18n`: Armazena substituições de dicionário (*Dictionary Overrides*) aplicadas em tempo real.
+    - `stepper_hidden_alerts`: Lista de identificadores (`messageKey`) de notificações silenciadas pelo usuário.
+    - **Auto-save**: Todas as alterações nos painéis de configuração são salvas instantaneamente via ouvintes `input` e `change`.
 - **UI/UX Optimization (Layout)**: Painel escuro (Dark Theme), organização lateral para Live Telemetry em oposição ao construtor de filas e integração do botão de *Single Step* horizontal, evitando totalmente rolagem vertical em navegadores e organizando o fluxo de visão (Golden Ratio 62:38). Container principal com altura absoluta de 600px.

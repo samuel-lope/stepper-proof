@@ -2,7 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.4.0] - 2026-04-16
+## [1.5.0] - 2026-04-17
+
+### Added
+- **Modal de Configurações**: Novo painel central para personalização da experiência de usuário.
+- **Dictionary Overrides**: Sistema que permite ao usuário substituir qualquer string ou termo técnico do firmware/interface em tempo real, com persistência automática.
+- **Alert Visibility Control**: Configuração granular de visibilidade para cada tipo de alerta (toasts). Permite silenciar notificações específicas sem perder logs no histórico.
+- **Auto-Save Persistence**: Implementação de ouvintes de evento (`input`/`change`) que salvam instantaneamente as preferências no `localStorage` (`stepper_custom_i18n` e `stepper_hidden_alerts`).
+
+### Fixed
+- **Mapeamento de Toasts**: Vinculação obrigatória de `messageKey` em todas as chamadas `showToast` da interface UI, garantindo que o filtro de visibilidade seja respeitado em 100% das mensagens.
+- **Erro de Sintaxe Serial**: Removida tag redundante que causava erro de execução no parser de conexões.
+
+---
 
 ### Added
 - **Internacionalização (i18n)**: Engine de tradução dependency-free (`i18n.js`) com suporte a EN-US e PT-BR. Todas as strings da interface são carregadas dinamicamente via `data-i18n` attributes e função `t('key', params)`. Idioma salvo em `localStorage`.

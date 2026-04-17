@@ -27,6 +27,7 @@ Execute o servidor local apontando para a pasta `public/` (ex: extensão *Live S
 - **Driver Enable/Disable:** Controle dinâmico `16:X` / `17:X` em tempo real.
 - **Fast Action Presets (EEPROM):** Execução instantânea de 5 comandos pré-gravados via `18:X`, com suporte a gravação dinâmica (`19`) e leitura (`1A`).
 - **Internacionalização (i18n):** Strings dinâmicas em `EN-US` e `PT-BR`.
+- **Configuração & Customização Total:** Painel de *Settings* que permite substituir qualquer termo do dicionário (*Dictionary Override*) e gerenciar a visibilidade de alertas (*Visibility Control*), com salvamento instantâneo via LocalStorage.
 
 ## Configuration
 
