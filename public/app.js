@@ -39,7 +39,12 @@
             }
         }
 
-        function showToast(message, type = 'info') {
+        function showToast(message, type = 'info', messageKey = null) {
+            if (messageKey) {
+                const hiddenAlerts = JSON.parse(localStorage.getItem('stepper_hidden_alerts') || '[]');
+                if (hiddenAlerts.includes(messageKey)) return;
+            }
+
             logAlert(message, type);
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -210,11 +215,11 @@
                     });
                     document.getElementById('tel-queue').textContent = '0';
                 }
-                return { text: t(key), type };
+                return { text: t(key), type, key };
             }
 
             if (line.startsWith('B2:'))
-                return { text: t('hw.B2', { ms: line.substring(3) }), type: 'info' };
+                return { text: t('hw.B2', { ms: line.substring(3) }), type: 'info', key: 'hw.B2' };
 
             if (line.startsWith('B7:')) {
                 const motorNum = line.substring(3);
@@ -224,7 +229,7 @@
                     st.textContent = t('tel.driver.on');
                     st.className = 'text-[12px] font-mono text-emerald-400 font-semibold truncate';
                 }
-                return { text: t('hw.B7', { motor: 'M' + motorNum }), type: 'success' };
+                return { text: t('hw.B7', { motor: 'M' + motorNum }), type: 'success', key: 'hw.B7' };
             }
 
             if (line.startsWith('B8:')) {
@@ -235,7 +240,7 @@
                     st.textContent = t('tel.driver.off');
                     st.className = 'text-[12px] font-mono text-brand/70 font-semibold truncate';
                 }
-                return { text: t('hw.B8', { motor: 'M' + motorNum }), type: 'warning' };
+                return { text: t('hw.B8', { motor: 'M' + motorNum }), type: 'warning', key: 'hw.B8' };
             }
 
             if (line.startsWith('C0:')) {
@@ -250,7 +255,7 @@
                     if (key === '12') details.push(val === '1' ? '[FWD]' : '[REV]');
                     if (key === '15') motorLabel = val === '2' ? 'M2' : 'M1';
                 }
-                return { text: t('hw.allocated', { idx, motor: motorLabel, details: details.join(' | ') }), type: 'success' };
+                return { text: t('hw.allocated', { idx, motor: motorLabel, details: details.join(' | ') }), type: 'success', key: 'hw.allocated' };
             }
 
             return { text: `RAW_HW > ${line}`, type: 'info' };
@@ -275,7 +280,7 @@
                                 lineBuffer = lineBuffer.slice(newlineIndex + 1);
                                 if (completeLine) {
                                     const translated = translateIncomingHex(completeLine);
-                                    if (translated) showToast(translated.text, translated.type);
+                                    if (translated) showToast(translated.text, translated.type, translated.key);
                                 }
                             }
                         }
@@ -298,17 +303,19 @@
             await writer.close();
 
             let displayCmd = commandString;
-            if      (commandString === '01')             displayCmd = t('tx.run');
-            else if (commandString === '02')             displayCmd = t('tx.stop');
-            else if (commandString === '03')             displayCmd = t('tx.loop');
-            else if (commandString.startsWith('04:'))   displayCmd = t('tx.pause', { ms: commandString.split(':')[1] });
+            let txKey = null;
+            if      (commandString === '01')            { displayCmd = t('tx.run'); txKey = 'tx.run'; }
+            else if (commandString === '02')            { displayCmd = t('tx.stop'); txKey = 'tx.stop'; }
+            else if (commandString === '03')            { displayCmd = t('tx.loop'); txKey = 'tx.loop'; }
+            else if (commandString.startsWith('04:'))   { displayCmd = t('tx.pause', { ms: commandString.split(':')[1] }); txKey = 'tx.pause'; }
             else if (commandString.startsWith('10:')) {
                 const parts = commandString.split(',');
                 displayCmd = t('tx.packet', { p0: parts[0], p1: parts[1] });
+                txKey = 'tx.packet';
             }
-            else if (commandString.startsWith('16:'))  displayCmd = t('tx.enable',  { motor: 'M' + commandString.split(':')[1] });
-            else if (commandString.startsWith('17:'))  displayCmd = t('tx.disable', { motor: 'M' + commandString.split(':')[1] });
-            showToast(`TX > ${displayCmd}`, 'out');
+            else if (commandString.startsWith('16:'))  { displayCmd = t('tx.enable',  { motor: 'M' + commandString.split(':')[1] }); txKey = 'tx.enable'; }
+            else if (commandString.startsWith('17:'))  { displayCmd = t('tx.disable', { motor: 'M' + commandString.split(':')[1] }); txKey = 'tx.disable'; }
+            showToast(`TX > ${displayCmd}`, 'out', txKey);
             return true;
         }
 
@@ -865,3 +872,127 @@
                 document.addEventListener('keydown', onKey);
             });
         }
+
+        // ── Settings Modal System ──────────────────────────────────────────────
+
+        const settingsModal = document.getElementById('modal-settings');
+        
+        function toggleSettingsModal(show) {
+            if (!settingsModal) return;
+            if (show) {
+                renderSettings();
+                settingsModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            } else {
+                settingsModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        }
+
+        document.getElementById('btn-settings')?.addEventListener('click', () => toggleSettingsModal(true));
+        document.getElementById('btn-close-settings')?.addEventListener('click', () => toggleSettingsModal(false));
+        document.getElementById('modal-settings-overlay')?.addEventListener('click', () => toggleSettingsModal(false));
+
+        // Tabs
+        document.querySelectorAll('.settings-tab').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.settings-tab').forEach(b => {
+                    b.classList.remove('active', 'bg-white', 'border-orange/40', 'text-orange');
+                    b.classList.add('text-navy/60', 'hover:bg-white/60', 'hover:text-navy', 'border-transparent', 'bg-transparent');
+                });
+                const target = e.target;
+                target.classList.add('active', 'bg-white', 'border-orange/40', 'text-orange');
+                target.classList.remove('text-navy/60', 'hover:bg-white/60', 'hover:text-navy', 'border-transparent', 'bg-transparent');
+                
+                document.querySelectorAll('.settings-pane').forEach(p => {
+                    p.classList.add('hidden');
+                    p.classList.remove('block');
+                });
+                document.getElementById(target.getAttribute('data-target')).classList.remove('hidden');
+                document.getElementById(target.getAttribute('data-target')).classList.add('block');
+            });
+        });
+
+        // Config Keys to expose
+        const dictKeys = [
+            'tx.run', 'tx.stop', 'tx.loop', 'tx.pause', 'tx.packet', 'tx.enable', 'tx.disable',
+            'hw.A0', 'hw.B0', 'hw.B1', 'hw.B4', 'hw.B5', 'hw.B6', 'hw.E0', 'hw.E1', 'hw.E2', 'hw.E3',
+            'hw.B2', 'hw.B7', 'hw.B8', 'hw.allocated'
+        ];
+
+        const visKeys = [
+            'tx.run', 'tx.stop', 'tx.loop', 'tx.pause', 'tx.packet', 'tx.enable', 'tx.disable',
+            'toast.connect.success', 'toast.disconnect', 'toast.seq.saved', 'toast.seq.loading', 'toast.seq.loaded'
+        ];
+
+        function renderSettings() {
+            const dictContainer = document.getElementById('dict-items-container');
+            const visContainer = document.getElementById('vis-items-container');
+            if(!dictContainer || !visContainer) return;
+
+            dictContainer.innerHTML = '';
+            visContainer.innerHTML = '';
+
+            // Render Dictionary
+            dictKeys.forEach(key => {
+                const defaultTrans = translations['en-US'][key] || key;
+                const ptTrans = translations['pt-BR'] ? translations['pt-BR'][key] : defaultTrans;
+                const hint = currentLang === 'pt-BR' ? ptTrans : defaultTrans;
+                
+                const val = customTranslations[key] || '';
+                
+                const div = document.createElement('div');
+                div.className = "flex flex-col gap-1 bg-white p-3 rounded border border-cream-dark shadow-sm";
+                div.innerHTML = `
+                    <label class="text-xs font-mono font-bold text-navy/70">${key}</label>
+                    <input type="text" data-dict-key="${key}" value="${val}" placeholder="${hint}" 
+                           class="w-full text-sm font-sans px-3 py-2 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none text-navy">
+                `;
+                dictContainer.appendChild(div);
+            });
+
+            // Render Visibility
+            const hiddenAlerts = JSON.parse(localStorage.getItem('stepper_hidden_alerts') || '[]');
+            visKeys.forEach(key => {
+                const isHidden = hiddenAlerts.includes(key);
+                const translationSample = t(key, { baud: 'X', ms: 'X', p0: 'X', p1: 'X', motor: 'X', name: 'X', idx: 'X', details: 'X' });
+                
+                const div = document.createElement('div');
+                div.className = "flex items-start gap-3 bg-white p-3 rounded border border-cream-dark shadow-sm";
+                div.innerHTML = `
+                    <input type="checkbox" id="chk-vis-${key}" data-vis-key="${key}" ${isHidden ? '' : 'checked'}
+                           class="mt-1 w-4 h-4 text-orange cursor-pointer">
+                    <div class="flex-1 overflow-hidden">
+                        <label for="chk-vis-${key}" class="text-xs font-mono font-bold text-navy/70 block mb-0.5 cursor-pointer">${key}</label>
+                        <p class="text-[11px] text-navy/50 truncate" title="${translationSample}">${translationSample}</p>
+                    </div>
+                `;
+                visContainer.appendChild(div);
+            });
+        }
+
+        document.getElementById('btn-save-dict')?.addEventListener('click', () => {
+            const inputs = document.querySelectorAll('#dict-items-container input[data-dict-key]');
+            const newDict = {};
+            inputs.forEach(inp => {
+                if(inp.value.trim() !== '') {
+                    newDict[inp.getAttribute('data-dict-key')] = inp.value.trim();
+                }
+            });
+            localStorage.setItem('stepper_custom_i18n', JSON.stringify(newDict));
+            customTranslations = newDict; // update glob in i18n
+            if(typeof applyTranslations === 'function') applyTranslations();
+            showToast("Dictionary Overrides Saved.", "success");
+        });
+
+        document.getElementById('btn-save-vis')?.addEventListener('click', () => {
+            const checkboxes = document.querySelectorAll('#vis-items-container input[data-vis-key]');
+            const newHidden = [];
+            checkboxes.forEach(chk => {
+                if(!chk.checked) {
+                    newHidden.push(chk.getAttribute('data-vis-key'));
+                }
+            });
+            localStorage.setItem('stepper_hidden_alerts', JSON.stringify(newHidden));
+            showToast("Alert Visibility Preferences Saved.", "success");
+        });

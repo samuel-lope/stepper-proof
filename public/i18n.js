@@ -301,6 +301,7 @@ const translations = {
 // ── Engine ────────────────────────────────────────────────────────────────────
 
 let currentLang = localStorage.getItem('stepper_lang') || 'en-US';
+let customTranslations = JSON.parse(localStorage.getItem('stepper_custom_i18n') || '{}');
 
 /**
  * Translate a key with optional variable interpolation.
@@ -309,10 +310,18 @@ let currentLang = localStorage.getItem('stepper_lang') || 'en-US';
  * @returns {string}
  */
 function t(key, vars = {}) {
-    const dict = translations[currentLang] || translations['en-US'];
-    let str = Object.prototype.hasOwnProperty.call(dict, key)
-        ? dict[key]
-        : (translations['en-US'][key] ?? key);
+    const defaultDict = translations['en-US'];
+    const currentDict = translations[currentLang] || defaultDict;
+    
+    let str = key;
+    if (customTranslations[key]) {
+        str = customTranslations[key];
+    } else if (Object.prototype.hasOwnProperty.call(currentDict, key)) {
+        str = currentDict[key];
+    } else if (Object.prototype.hasOwnProperty.call(defaultDict, key)) {
+        str = defaultDict[key];
+    }
+
     for (const [k, v] of Object.entries(vars)) {
         str = str.replaceAll(`{${k}}`, v);
     }
