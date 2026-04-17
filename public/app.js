@@ -108,12 +108,12 @@
                 const selectedBaudRate = parseInt(baudRateSelect.value);
                 await port.open({ baudRate: selectedBaudRate });
                 updateUIState(true);
-                showToast(t('toast.connect.success', { baud: selectedBaudRate }), 'success');
+                showToast(t('toast.connect.success', { baud: selectedBaudRate }), 'success', 'toast.connect.success');
                 keepReading = true;
                 readLoop();
             } catch (error) {
                 console.error('Connection error:', error);
-                showToast(t('toast.connect.error', { msg: error.message }), 'error');
+                showToast(t('toast.connect.error', { msg: error.message }), 'error', 'toast.connect.error');
             }
         }
 
@@ -125,7 +125,7 @@
                 port = null;
             }
             updateUIState(false);
-            showToast(t('toast.disconnect'), 'warning');
+            showToast(t('toast.disconnect'), 'warning', 'toast.disconnect');
         }
 
         function updateUIState(connected) {
@@ -323,7 +323,7 @@
             if (await sendRawString(commandString)) {
                 await new Promise(r => setTimeout(r, 60));
             } else {
-                showToast(t('toast.io.absent'), 'error');
+                showToast(t('toast.io.absent'), 'error', 'toast.io.absent');
             }
         }
 
@@ -358,7 +358,7 @@
             const motor  = document.getElementById('inp-motor').value;
 
             if (!step || !vel || vel < 50) {
-                showToast(t('toast.vel.error'), 'error');
+                showToast(t('toast.vel.error'), 'error', 'toast.vel.error');
                 const velInp = document.getElementById('inp-vel');
                 velInp.classList.add('border-brand', 'ring-brand', 'ring-2');
                 setTimeout(() => velInp.classList.remove('border-brand', 'ring-brand', 'ring-2'), 2500);
@@ -382,7 +382,7 @@
                 return;
             }
             if (!port) {
-                showToast(t('toast.io.absent'), "error");
+                showToast(t('toast.io.absent'), "error", 'toast.io.absent');
                 return;
             }
             sendCommand(`19:${idx},${cmd}`);
@@ -398,7 +398,7 @@
                     document.getElementById('btn-run-one').disabled = false;
                     sendCommand(cmd);
                 } else {
-                    showToast(t('toast.queue.added.offline'), 'success');
+                    showToast(t('toast.queue.added.offline'), 'success', 'toast.queue.added.offline');
                 }
             }
         });
@@ -413,7 +413,7 @@
         document.getElementById('btn-clear-queue').addEventListener('click', () => {
             currentQueue = [];
             updateQueueButtons();
-            showToast(t('toast.queue.cleared'), 'info');
+            showToast(t('toast.queue.cleared'), 'info', 'toast.queue.cleared');
         });
 
         document.getElementById('btn-save-queue').addEventListener('click', async () => {
@@ -430,7 +430,7 @@
             let library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
             library.unshift({ id: 'seq_' + Date.now(), name, commands, date: new Date().toISOString() });
             localStorage.setItem('stepper_library', JSON.stringify(library));
-            showToast(t('toast.seq.saved', { name }), 'success');
+            showToast(t('toast.seq.saved', { name }), 'success', 'toast.seq.saved');
         }
 
         async function deleteSequence(id, name) {
@@ -439,7 +439,7 @@
             library = library.filter(s => s.id !== id);
             localStorage.setItem('stepper_library', JSON.stringify(library));
             renderLibrary();
-            showToast(t('toast.seq.deleted'), 'warning');
+            showToast(t('toast.seq.deleted'), 'warning', 'toast.seq.deleted');
         }
 
         let openAccordionId = null;
@@ -541,9 +541,9 @@
                 if (library[seqIndex].commands.length === 0) {
                     library.splice(seqIndex, 1);
                     openAccordionId = null;
-                    showToast(t('toast.seq.autodelete'), 'info');
+                    showToast(t('toast.seq.autodelete'), 'info', 'toast.seq.autodelete');
                 } else {
-                    showToast(t('toast.seq.line.deleted', { idx }), 'warning');
+                    showToast(t('toast.seq.line.deleted', { idx }), 'warning', 'toast.seq.line.deleted');
                 }
                 localStorage.setItem('stepper_library', JSON.stringify(library));
                 renderLibrary();
@@ -595,7 +595,7 @@
             const newValue = input.value.trim();
 
             if (!newValue) {
-                showToast(t('toast.seq.line.empty'), 'error');
+                showToast(t('toast.seq.line.empty'), 'error', 'toast.seq.line.empty');
                 input.focus();
                 return;
             }
@@ -606,7 +606,7 @@
                 library[seqIndex].commands[idx] = newValue;
                 localStorage.setItem('stepper_library', JSON.stringify(library));
                 renderLibrary();
-                showToast(t('toast.seq.line.saved', { idx }), 'success');
+                showToast(t('toast.seq.line.saved', { idx }), 'success', 'toast.seq.line.saved');
             }
         }
 
@@ -616,7 +616,7 @@
             if (!seq) return;
 
             if (!port) {
-                showToast(t('toast.seq.load.noconn'), 'error');
+                showToast(t('toast.seq.load.noconn'), 'error', 'toast.seq.load.noconn');
                 return;
             }
 
@@ -626,7 +626,7 @@
             currentQueue = [];
             updateQueueButtons();
 
-            showToast(t('toast.seq.loading', { name: seq.name }), 'info');
+            showToast(t('toast.seq.loading', { name: seq.name }), 'info', 'toast.seq.loading');
 
             for (const cmd of seq.commands) {
                 await sendCommand(cmd);
@@ -634,7 +634,7 @@
                 await new Promise(r => setTimeout(r, 150));
             }
             updateQueueButtons();
-            showToast(t('toast.seq.loaded'), 'success');
+            showToast(t('toast.seq.loaded'), 'success', 'toast.seq.loaded');
         }
 
         // ── Library Modal ─────────────────────────────────────────────────────
@@ -660,7 +660,7 @@
             if (await showConfirmModal(t('confirm.lib.clearall.title'), t('confirm.lib.clearall.text'))) {
                 localStorage.removeItem('stepper_library');
                 renderLibrary();
-                showToast(t('toast.lib.cleared'), 'error');
+                showToast(t('toast.lib.cleared'), 'error', 'toast.lib.cleared');
             }
         });
 
@@ -716,12 +716,12 @@
                 dot.classList.replace('bg-white/20', 'bg-amber');
                 btn.classList.add('border-amber', 'bg-amber/20', 'text-amber');
                 btn.classList.remove('border-white/10', 'bg-white/10', 'text-cream');
-                showToast(t('toast.loop.on'), 'info');
+                showToast(t('toast.loop.on'), 'info', 'toast.loop.on');
             } else {
                 dot.classList.replace('bg-amber', 'bg-white/20');
                 btn.classList.remove('border-amber', 'bg-amber/20', 'text-amber');
                 btn.classList.add('border-white/10', 'bg-white/10', 'text-cream');
-                showToast(t('toast.loop.off'), 'info');
+                showToast(t('toast.loop.off'), 'info', 'toast.loop.off');
             }
         });
 
@@ -750,7 +750,7 @@
         document.getElementById('btn-clear-alerts')?.addEventListener('click', () => {
             localStorage.removeItem('stepper_alerts');
             renderAlerts();
-            showToast(t('toast.alerts.cleared'), 'warning');
+            showToast(t('toast.alerts.cleared'), 'warning', 'toast.alerts.cleared');
         });
 
         function renderAlerts() {
