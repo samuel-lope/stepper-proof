@@ -996,28 +996,34 @@
             });
         }
 
+        document.getElementById('dict-items-container')?.addEventListener('input', (e) => {
+            if (e.target.matches('input[data-dict-key]')) {
+                const inputs = document.querySelectorAll('#dict-items-container input[data-dict-key]');
+                const newDict = {};
+                inputs.forEach(inp => {
+                    if(inp.value.trim() !== '') {
+                        newDict[inp.getAttribute('data-dict-key')] = inp.value.trim();
+                    }
+                });
+                localStorage.setItem('stepper_custom_i18n', JSON.stringify(newDict));
+                customTranslations = newDict; // update glob in i18n
+                if(typeof applyTranslations === 'function') applyTranslations();
+            }
+        });
+
         document.getElementById('btn-save-dict')?.addEventListener('click', () => {
-            const inputs = document.querySelectorAll('#dict-items-container input[data-dict-key]');
-            const newDict = {};
-            inputs.forEach(inp => {
-                if(inp.value.trim() !== '') {
-                    newDict[inp.getAttribute('data-dict-key')] = inp.value.trim();
-                }
-            });
-            localStorage.setItem('stepper_custom_i18n', JSON.stringify(newDict));
-            customTranslations = newDict; // update glob in i18n
-            if(typeof applyTranslations === 'function') applyTranslations();
             showToast(t('toast.dict.saved'), "success", "toast.dict.saved");
         });
 
-        document.getElementById('btn-save-vis')?.addEventListener('click', () => {
-            const checkboxes = document.querySelectorAll('#vis-items-container input[data-vis-key]');
-            const newHidden = [];
-            checkboxes.forEach(chk => {
-                if(!chk.checked) {
-                    newHidden.push(chk.getAttribute('data-vis-key'));
-                }
-            });
-            localStorage.setItem('stepper_hidden_alerts', JSON.stringify(newHidden));
-            showToast(t('toast.vis.saved'), "success", "toast.vis.saved");
+        document.getElementById('vis-items-container')?.addEventListener('change', (e) => {
+            if (e.target.matches('input[data-vis-key]')) {
+                const checkboxes = document.querySelectorAll('#vis-items-container input[data-vis-key]');
+                const newHidden = [];
+                checkboxes.forEach(chk => {
+                    if(!chk.checked) {
+                        newHidden.push(chk.getAttribute('data-vis-key'));
+                    }
+                });
+                localStorage.setItem('stepper_hidden_alerts', JSON.stringify(newHidden));
+            }
         });
