@@ -374,11 +374,11 @@
         document.getElementById('btn-save-preset').addEventListener('click', async () => {
             const cmd = buildCommandFromInputs();
             if (!cmd) return;
-            const slotStr = await showPromptModal("Gravar Preset EEPROM (Slot 0-4):", "0");
+            const slotStr = await showPromptModal(t('prompt.eeprom.title'), "0");
             if (slotStr === null) return;
             const idx = parseInt(slotStr.trim());
             if (isNaN(idx) || idx < 0 || idx > 4) {
-                showToast("Slot inválido. Escolha entre 0 e 4.", "error");
+                showToast(t('toast.eeprom.invalid'), "error", "toast.eeprom.invalid");
                 return;
             }
             if (!port) {
@@ -914,16 +914,11 @@
         });
 
         // Config Keys to expose
-        const dictKeys = [
-            'tx.run', 'tx.stop', 'tx.loop', 'tx.pause', 'tx.packet', 'tx.enable', 'tx.disable',
-            'hw.A0', 'hw.B0', 'hw.B1', 'hw.B4', 'hw.B5', 'hw.B6', 'hw.E0', 'hw.E1', 'hw.E2', 'hw.E3',
-            'hw.B2', 'hw.B7', 'hw.B8', 'hw.allocated'
-        ];
+        const dictKeys = Object.keys(translations['en-US']);
 
-        const visKeys = [
-            'tx.run', 'tx.stop', 'tx.loop', 'tx.pause', 'tx.packet', 'tx.enable', 'tx.disable',
-            'toast.connect.success', 'toast.disconnect', 'toast.seq.saved', 'toast.seq.loading', 'toast.seq.loaded'
-        ];
+        const visKeys = Object.keys(translations['en-US']).filter(k => 
+            k.startsWith('tx.') || k.startsWith('toast.') || k.startsWith('hw.')
+        );
 
         function renderSettings() {
             const dictContainer = document.getElementById('dict-items-container');
@@ -934,21 +929,51 @@
             visContainer.innerHTML = '';
 
             // Render Dictionary
-            dictKeys.forEach(key => {
-                const defaultTrans = translations['en-US'][key] || key;
-                const ptTrans = translations['pt-BR'] ? translations['pt-BR'][key] : defaultTrans;
-                const hint = currentLang === 'pt-BR' ? ptTrans : defaultTrans;
-                
-                const val = customTranslations[key] || '';
-                
-                const div = document.createElement('div');
-                div.className = "flex flex-col gap-1 bg-white p-3 rounded border border-cream-dark shadow-sm";
-                div.innerHTML = `
-                    <label class="text-xs font-mono font-bold text-navy/70">${key}</label>
-                    <input type="text" data-dict-key="${key}" value="${val}" placeholder="${hint}" 
-                           class="w-full text-sm font-sans px-3 py-2 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none text-navy">
-                `;
-                dictContainer.appendChild(div);
+            const categories = [
+                { id: 'ui', titleKey: 'dict.cat.ui', keys: [], match: k => /^(app|header|lang|cmd|lib|settings|global|fastaction|btn|seq|prompt)\./.test(k) },
+                { id: 'modals', titleKey: 'dict.cat.modals', keys: [], match: k => /^(modal|confirm|alerts|alertsmodal)\./.test(k) },
+                { id: 'alerts', titleKey: 'dict.cat.alerts', keys: [], match: k => /^toast\./.test(k) },
+                { id: 'hw', titleKey: 'dict.cat.hw', keys: [], match: k => /^(hw|tel)\./.test(k) },
+                { id: 'tx', titleKey: 'dict.cat.tx', keys: [], match: k => /^tx\./.test(k) }
+            ];
+            const otherCategory = { id: 'other', titleKey: 'dict.cat.other', keys: [] };
+
+            dictKeys.forEach(k => {
+                if (k.startsWith('dict.cat.')) return; // Exclude category titles
+                const cat = categories.find(c => c.match(k));
+                if (cat) cat.keys.push(k);
+                else otherCategory.keys.push(k);
+            });
+            if (otherCategory.keys.length > 0) categories.push(otherCategory);
+
+            categories.forEach(cat => {
+                if (cat.keys.length === 0) return;
+
+                const catDiv = document.createElement('div');
+                catDiv.className = "mb-6";
+                catDiv.innerHTML = `<h4 class="text-[13px] font-bold text-navy/80 mb-3 border-b border-cream-dark pb-1.5 shadow-[0_1px_0_rgba(255,255,255,1)] uppercase tracking-widest pl-1">${t(cat.titleKey)}</h4>`;
+
+                const gridDiv = document.createElement('div');
+                gridDiv.className = "space-y-3";
+
+                cat.keys.forEach(key => {
+                    const defaultTrans = translations['en-US'][key] || key;
+                    const ptTrans = translations['pt-BR'] ? translations['pt-BR'][key] : defaultTrans;
+                    const hint = currentLang === 'pt-BR' ? ptTrans : defaultTrans;
+                    
+                    const val = customTranslations[key] || '';
+                    
+                    const div = document.createElement('div');
+                    div.className = "flex flex-col gap-1 bg-white p-3.5 rounded-xl border border-cream-dark shadow-sm hover:border-orange/30 hover:shadow-md transition-all";
+                    div.innerHTML = `
+                        <label class="text-xs font-mono font-bold text-navy/70 mb-0.5">${key}</label>
+                        <input type="text" data-dict-key="${key}" value="${val}" placeholder="${hint.replace(/"/g, '&quot;')}" 
+                               class="w-full text-sm font-sans px-3.5 py-2.5 rounded-lg border border-cream-dark focus-visible:border-orange focus-visible:ring-2 focus-visible:ring-orange/20 outline-none text-navy bg-cream/10 transition-colors">
+                    `;
+                    gridDiv.appendChild(div);
+                });
+                catDiv.appendChild(gridDiv);
+                dictContainer.appendChild(catDiv);
             });
 
             // Render Visibility
@@ -982,7 +1007,7 @@
             localStorage.setItem('stepper_custom_i18n', JSON.stringify(newDict));
             customTranslations = newDict; // update glob in i18n
             if(typeof applyTranslations === 'function') applyTranslations();
-            showToast("Dictionary Overrides Saved.", "success");
+            showToast(t('toast.dict.saved'), "success", "toast.dict.saved");
         });
 
         document.getElementById('btn-save-vis')?.addEventListener('click', () => {
@@ -994,5 +1019,5 @@
                 }
             });
             localStorage.setItem('stepper_hidden_alerts', JSON.stringify(newHidden));
-            showToast("Alert Visibility Preferences Saved.", "success");
+            showToast(t('toast.vis.saved'), "success", "toast.vis.saved");
         });

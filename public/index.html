@@ -665,8 +665,8 @@
                 <div class="flex flex-1 overflow-hidden">
                     <!-- Sidebar -->
                     <div class="w-48 bg-cream/30 border-r border-cream-dark p-4 space-y-2 flex flex-col shrink-0">
-                        <button class="settings-tab active w-full text-left px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors bg-white shadow-sm border border-orange/40 text-orange" data-target="tab-dictionary">Dictionary</button>
-                        <button class="settings-tab w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors text-navy/60 hover:bg-white/60 hover:text-navy" data-target="tab-visibility">Visibility</button>
+                        <button class="settings-tab active w-full text-left px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors bg-white shadow-sm border border-orange/40 text-orange" data-target="tab-dictionary" data-i18n="settings.tab.dict">Dictionary</button>
+                        <button class="settings-tab w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors text-navy/60 hover:bg-white/60 hover:text-navy" data-target="tab-visibility" data-i18n="settings.tab.vis">Visibility</button>
                     </div>
                     
                     <!-- Content Area -->
@@ -674,19 +674,19 @@
                         <!-- Tab Dictionary -->
                         <div id="tab-dictionary" class="settings-pane block">
                             <div class="mb-5 border-b border-cream-dark pb-3 flex justify-between items-center sticky top-0 z-10 pt-1 bg-white/90 backdrop-blur rounded px-3">
-                                <h3 class="text-lg font-semibold text-navy">Dictionary Override</h3>
-                                <button id="btn-save-dict" class="bg-orange hover:bg-orange-dark text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition transform active:scale-95">Save Overrides</button>
+                                <h3 class="text-lg font-semibold text-navy" data-i18n="settings.dict.title">Dictionary Override</h3>
+                                <button id="btn-save-dict" class="bg-orange hover:bg-orange-dark text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition transform active:scale-95" data-i18n="settings.dict.save">Save Overrides</button>
                             </div>
-                            <p class="text-sm text-navy/60 mb-6 bg-white p-4 rounded-xl border border-cream-dark">Modify these values to redefine hardware responses and internal logs. Leave empty to use system defaults.</p>
+                            <p class="text-sm text-navy/60 mb-6 bg-white p-4 rounded-xl border border-cream-dark" data-i18n="settings.dict.desc">Modify these values to redefine hardware responses and internal logs. Leave empty to use system defaults.</p>
                             <div id="dict-items-container" class="space-y-4"></div>
                         </div>
 
                         <!-- Tab Visibility -->
                         <div id="tab-visibility" class="settings-pane hidden">
                             <div class="mb-5 border-b border-cream-dark pb-3 flex justify-between items-center sticky top-0 z-10 pt-1 bg-white/90 backdrop-blur rounded px-3">
-                                <h3 class="text-lg font-semibold text-navy">Alert Visibility</h3>
+                                <h3 class="text-lg font-semibold text-navy" data-i18n="settings.vis.title">Alert Visibility</h3>
                             </div>
-                            <p class="text-sm text-navy/60 mb-6 bg-white p-4 rounded-xl border border-cream-dark">Uncheck an alert type to silence it continuously across the local session. Settings apply immediately.</p>
+                            <p class="text-sm text-navy/60 mb-6 bg-white p-4 rounded-xl border border-cream-dark" data-i18n="settings.vis.desc">Uncheck an alert type to silence it continuously across the local session. Settings apply immediately.</p>
                             <div id="vis-items-container" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
                         </div>
                     </div>

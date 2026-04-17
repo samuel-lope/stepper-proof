@@ -94,6 +94,7 @@ const translations = {
 
         // ── Prompt Modal Calls ────────────────────────────────────────────
         'prompt.seq.save.title': 'Save Sequence',
+        'prompt.eeprom.title': 'Save EEPROM Preset (Slot 0-4):',
         'seq.default.name': 'Sequence',
 
         // ── Button / Shared ───────────────────────────────────────────────
@@ -122,6 +123,27 @@ const translations = {
         'toast.vel.error': 'Error: Firmware will reject. Minimum velocity = 50µs.',
         'toast.motor.enabled': '⚡ Motor {motor} driver ENABLED (EN → LOW).',
         'toast.motor.disabled': '🔌 Motor {motor} driver DISABLED (EN → HIGH).',
+        'toast.eeprom.invalid': 'Invalid slot. Choose between 0 and 4.',
+        'toast.dict.saved': 'Dictionary Overrides Saved.',
+        'toast.vis.saved': 'Alert Visibility Preferences Saved.',
+
+        // ── Settings Modal System ─────────────────────────────────────────
+        'settings.tab.dict': 'Dictionary',
+        'settings.tab.vis': 'Visibility',
+        'settings.dict.title': 'Dictionary Override',
+        'settings.dict.desc': 'Modify these values to redefine hardware responses and internal logs. Leave empty to use system defaults.',
+        'settings.dict.save': 'Save Overrides',
+        'settings.vis.title': 'Alert Visibility',
+        'settings.vis.desc': 'Uncheck an alert type to silence it continuously across the local session. Settings apply immediately.',
+
+        // ── Dictionary Categories ─────────────────────────────────────────
+        'dict.cat.ui': 'Interface & Labels',
+        'dict.cat.modals': 'Modals & Dialogs',
+        'dict.cat.alerts': 'Toasts & System Alerts',
+        'dict.cat.hw': 'Hardware Responses (RX)',
+        'dict.cat.tx': 'Serial Injections (TX)',
+        'dict.cat.other': 'Other Strings',
+
 
         // ── TX Decorators (sendRawString) ─────────────────────────────────
         'tx.run': 'Injected Signal: 01 [EXECUTE FULL QUEUE]',
@@ -240,6 +262,7 @@ const translations = {
 
         // ── Prompt Modal Calls ────────────────────────────────────────────
         'prompt.seq.save.title': 'Salvar Sequência',
+        'prompt.eeprom.title': 'Gravar Preset EEPROM (Slot 0-4):',
         'seq.default.name': 'Sequência',
 
         // ── Button / Shared ───────────────────────────────────────────────
@@ -268,6 +291,27 @@ const translations = {
         'toast.vel.error': 'Erro: O firmware rejeitará. Velocity mínimo = 50µs.',
         'toast.motor.enabled': '⚡ Driver do Motor {motor} HABILITADO (EN → LOW).',
         'toast.motor.disabled': '🔌 Driver do Motor {motor} DESABILITADO (EN → HIGH).',
+        'toast.eeprom.invalid': 'Slot inválido. Escolha entre 0 e 4.',
+        'toast.dict.saved': 'Substituições do Dicionário Salvas.',
+        'toast.vis.saved': 'Preferências de Visibilidade Salvas.',
+
+        // ── Settings Modal System ─────────────────────────────────────────
+        'settings.tab.dict': 'Dicionário',
+        'settings.tab.vis': 'Visibilidade',
+        'settings.dict.title': 'Substituição de Dicionário',
+        'settings.dict.desc': 'Modifique esses valores para redefinir respostas de hardware e logs internos. Deixe em branco para os valores originais.',
+        'settings.dict.save': 'Salvar Substituições',
+        'settings.vis.title': 'Visibilidade de Alertas',
+        'settings.vis.desc': 'Desmarque um tipo de alerta para silenciá-lo continuamente durante a sessão local. As definições são aplicadas imediatamente.',
+
+        // ── Dictionary Categories ─────────────────────────────────────────
+        'dict.cat.ui': 'Interface e Rótulos',
+        'dict.cat.modals': 'Modais e Diálogos',
+        'dict.cat.alerts': 'Toasts e Alertas',
+        'dict.cat.hw': 'Respostas de Hardware (RX)',
+        'dict.cat.tx': 'Informações Seriais (TX)',
+        'dict.cat.other': 'Outras Strings',
+
 
         // ── TX Decorators (sendRawString) ─────────────────────────────────
         'tx.run': 'Injetado Sinal: 01 [EXECUTAR FILA INTEIRA]',
