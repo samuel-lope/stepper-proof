@@ -689,8 +689,9 @@
         });
 
         for (let i = 0; i < 5; i++) {
-            document.getElementById(`btn-fast-${i}`).addEventListener('click', () => {
-                sendCommand(`18:${i}`);
+            document.getElementById(`btn-fast-${i}`).addEventListener('click', async () => {
+                await sendCommand('02');
+                await sendCommand(`18:${i}`);
             });
         }
 
