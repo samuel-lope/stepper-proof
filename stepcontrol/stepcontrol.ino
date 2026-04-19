@@ -61,12 +61,12 @@
 // Motor 1
 #define M1_DIR_PIN PD2
 #define M1_PUL_PIN PD3
-#define M1_EN_PIN PB0
+#define M1_EN_PIN  PD6 // GPIO 6
 
 // Motor 2
 #define M2_DIR_PIN PD4
 #define M2_PUL_PIN PD5
-#define M2_EN_PIN PD7
+#define M2_EN_PIN  PD7 // GPIO 7
 
 // --- Estruturas da Fila de Comandos ---
 #define MAX_FILA 20
@@ -146,12 +146,12 @@ void executarFastAction(uint8_t idx);
 
 void setup() {
     // Configura Pinos como SAÍDA
-    DDRD |= (1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN);
-    DDRB |= (1 << M1_EN_PIN);
+    DDRD |= (1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M1_EN_PIN) | 
+            (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN);
 
     // Garante LOW nos pinos de pulso, dir e enable (Ativo baixo no TB6600)
-    PORTD &= ~((1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN));
-    PORTB &= ~(1 << M1_EN_PIN);
+    PORTD &= ~((1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M1_EN_PIN) | 
+               (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN));
 
     cli();
     TCCR1A = 0; // Modo Normal
@@ -477,13 +477,13 @@ void interpretarComando(char* linha) {
                 else if (chave == 0x14) { cmd.pause_ms = valor; eh_parametro = true; }
                 else if (chave == 0x15) { cmd.motor_id = valor; eh_parametro = true; }
                 else if (chave == 0x16) { // enableMotor (EN = LOW, ativo baixo TB6600)
-                    if (valor == 1) { PORTB &= ~(1 << M1_EN_PIN); }
+                    if (valor == 1)      { PORTD &= ~(1 << M1_EN_PIN); }
                     else if (valor == 2) { PORTD &= ~(1 << M2_EN_PIN); }
                     Serial.print(0xB7, HEX); Serial.print(':'); Serial.println(valor);
                     return;
                 }
                 else if (chave == 0x17) { // disableMotor (EN = HIGH)
-                    if (valor == 1) { PORTB |= (1 << M1_EN_PIN); }
+                    if (valor == 1)      { PORTD |= (1 << M1_EN_PIN); }
                     else if (valor == 2) { PORTD |= (1 << M2_EN_PIN); }
                     Serial.print(0xB8, HEX); Serial.print(':'); Serial.println(valor);
                     return;
