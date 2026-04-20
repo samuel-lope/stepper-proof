@@ -734,19 +734,18 @@
         const jogMax1 = document.getElementById('jog-max-1');
         const slider1 = document.getElementById('jog-slider-1');
 
-        let lastJog1 = 0;
+        let timeoutJog1 = null;
         
         jogMin1?.addEventListener('change', e => { if(slider1) slider1.min = e.target.value; });
         jogMax1?.addEventListener('change', e => { if(slider1) slider1.max = e.target.value; });
-        slider1?.addEventListener('input', async (e) => {
+        slider1?.addEventListener('input', (e) => {
             let newVal = parseInt(e.target.value);
             jogVal1.textContent = newVal;
-            if (newVal > lastJog1) {
-                if(port) await sendCommand('1B:0:1');
-            } else if (newVal < lastJog1) {
-                if(port) await sendCommand('1B:0:-1');
-            }
-            lastJog1 = newVal;
+            
+            clearTimeout(timeoutJog1);
+            timeoutJog1 = setTimeout(async () => {
+                if (port) await sendCommand(`1B:0:${newVal}`);
+            }, 300); // 300ms de atraso (Rastreio)
         });
 
         const jogVal2 = document.getElementById('jog-val-2');
@@ -754,19 +753,18 @@
         const jogMax2 = document.getElementById('jog-max-2');
         const slider2 = document.getElementById('jog-slider-2');
 
-        let lastJog2 = 0;
+        let timeoutJog2 = null;
 
         jogMin2?.addEventListener('change', e => { if(slider2) slider2.min = e.target.value; });
         jogMax2?.addEventListener('change', e => { if(slider2) slider2.max = e.target.value; });
-        slider2?.addEventListener('input', async (e) => {
+        slider2?.addEventListener('input', (e) => {
             let newVal = parseInt(e.target.value);
             jogVal2.textContent = newVal;
-            if (newVal > lastJog2) {
-                if(port) await sendCommand('1B:1:1');
-            } else if (newVal < lastJog2) {
-                if(port) await sendCommand('1B:1:-1');
-            }
-            lastJog2 = newVal;
+            
+            clearTimeout(timeoutJog2);
+            timeoutJog2 = setTimeout(async () => {
+                if (port) await sendCommand(`1B:1:${newVal}`);
+            }, 300); // 300ms de atraso (Rastreio)
         });
 
         // ── Alert History Modal ───────────────────────────────────────────────
