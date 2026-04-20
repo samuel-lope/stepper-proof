@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - **Sanitização de Comandos**: Adicionada validação de ID de motor para os comandos `16` (Enable) e `17` (Disable), prevenindo execuções em IDs inexistentes.
 
 ### Added
+### Added
+- **Comando `1B` (Fast Action Override)**: Executa um preset da EEPROM substituindo sua quantidade de repetições originais. Sintaxe: `1B:slot:repeticoes` (ex: `1B:0:4`). Se o valor de repetições for negativo (ex: `1B:0:-40`), o sistema inverte automaticamente a direção original gravada na EEPROM enquanto executa a versão absoluta do número de repetições.
 - **Code Documentation**: Inclusão de cabeçalhos profissionais JSDoc/Doxygen-style nas funções principais do firmware para melhor manutenibilidade.
 
 

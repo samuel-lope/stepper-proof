@@ -43,6 +43,7 @@ Disparam ações imediatas no sistema de estados.
 | `18:X` | **FAST ACTION** | Executa instantaneamente o preset gravado no slot `X` (0-4) da EEPROM. Limpa a fila antes. |
 | `19:...` | **WRITE PRESET** | Salva preset no slot `X` da EEPROM. Sintaxe: `19:X,10:step,11:vel...`. |
 | `1A:X` | **READ PRESET** | Solicita parâmetros do slot `X` da EEPROM. Retorna `BA:X,10:step...`. |
+| `1B:X:Y` | **FAST ACTION OVERRIDE** | Executa preset `X` substituindo suas repetições por `Y` (`1B:slot:rep`). Se `Y` for negativo, a direção do motor é invertida de forma atômica. |
 
 ### 📥 Parâmetros de Motor (Web → Arduino)
 
@@ -89,6 +90,8 @@ Enviados como string única com múltiplos campos separados por vírgula.
 | `B8:X` | **Motor Disabled** | Driver do Motor X desabilitado (EN → HIGH). Eixo livre. |
 | `B9:X,...` | **Preset Saved** | Confirmação da gravação na EEPROM. Retorna a linha gravada. |
 | `BA:X,...` | **Preset Data** | Resposta do comando de leitura `1A`. Retorna string do respectivo slot. |
+| `BB:X,...` | **Preset Executed** | Resposta do `18`. Fast Action executado no slot X. |
+| `BC:X,...` | **Rep Override** | Resposta do `1B`. Fast Action executado no slot X com repetições substituídas. |
 | `E4` | **Invalid Slot** | Rejeição: O slot EEPROM requisitado (X) é maior que o configurado (Max: 4). |
 
 ### 🛰️ Telemetria Passiva (H8P V2)

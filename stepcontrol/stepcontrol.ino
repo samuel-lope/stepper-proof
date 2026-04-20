@@ -21,6 +21,7 @@
  * 18 : fastAction   (Executa preset EEPROM imediatamente. Ex: 18:0 a 18:4)
  * 19 : writePreset  (Grava preset na EEPROM. Ex: 19:2,10:800,11:300,12:0,13:1,14:0,15:1)
  * 1A : readPreset   (Lê preset da EEPROM. Ex: 1A:2 — retorna parâmetros do slot 2)
+ * 1B : fastActionRep(Executa preset EEPROM com loop customizado. Ex: 1B:0:-4)
  *
  * Exemplo de envio via Serial (Motor 2, 1600 passos, vel 500, dir 1): 
  * 10:1600,11:500,12:1,15:2
@@ -38,6 +39,7 @@
  * B9 : Preset EEPROM gravado com sucesso
  * BA : Preset EEPROM lido (dump de parâmetros)
  * BB : fastAction executado com sucesso
+ * BC : fastActionRep executado com sucesso (override de repetições efetuado)
  * C0 : Linha salva com sucesso (Retorna índice e parâmetros incluindo Motor)
  * C1 : [TELEMETRIA] Status de Slot na Fila (uso RAM)
  * D0 : [TELEMETRIA] Linha ativada pelos Optoacopladores do Motor 
@@ -143,6 +145,7 @@ void inicializarPresetsEEPROM();
 void gravarPresetEEPROM(uint8_t idx, ComandoMotor cmd);
 ComandoMotor lerPresetEEPROM(uint8_t idx);
 void executarFastAction(uint8_t idx);
+void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed);
 
 void setup() {
     // Configura Pinos como SAÍDA
@@ -370,6 +373,49 @@ void executarFastAction(uint8_t idx) {
     }
 }
 
+void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed) {
+    if (m1_executando || m2_executando) {
+        Serial.println(0xE0, HEX); // Motor já em execução
+        return;
+    }
+
+    ComandoMotor cmd = lerPresetEEPROM(idx);
+    
+    // Suporte para inversão de direção via sinal negativo
+    if (custom_repeat_signed < 0) {
+        cmd.repeat = (uint16_t)(-custom_repeat_signed);
+        cmd.dir = (cmd.dir == 1) ? 0 : 1; // Inverte o que estava na EEPROM
+    } else {
+        cmd.repeat = (uint16_t)custom_repeat_signed;
+    }
+
+    // Reset da fila e injeta o preset como linha única
+    qtd_comandos_na_fila = 0;
+    fila_comandos[0] = cmd;
+    qtd_comandos_na_fila = 1;
+
+    // Executa imediatamente
+    m1_executando = true;
+    m2_executando = true;
+    m1_indice_atual = 0;
+    m2_indice_atual = 0;
+
+    if (!carregarProximoComando(1)) m1_executando = false;
+    if (!carregarProximoComando(2)) m2_executando = false;
+
+    if (m1_executando || m2_executando) {
+        fila_iniciada = true;
+        // Resposta: BC:idx,10:step,11:vel,12:dir,13:repeat,14:pause,15:motor
+        Serial.print(0xBC, HEX); Serial.print(':'); Serial.print(idx);
+        Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(cmd.step);
+        Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(cmd.vel);
+        Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(cmd.dir);
+        Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(cmd.repeat);
+        Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(cmd.pause_ms);
+        Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(cmd.motor_id);
+    }
+}
+
 // ---------------------------------------------------------
 // COMUNICAÇÃO SERIAL E FILA (CÓDIGO HEX)
 // ---------------------------------------------------------
@@ -553,6 +599,13 @@ void interpretarComando(char* linha) {
                     Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(p.repeat);
                     Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(p.pause_ms);
                     Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(p.motor_id);
+                    return;
+                }
+                else if (chave == 0x1B) { // fastActionRep — executa preset EEPROM override de repetições (Ex: 1B:slot:rep)
+                    char* rep_str = strtok_r(NULL, ":", &ponteiro_dois_pontos);
+                    if (valor > 4 || rep_str == NULL) { Serial.println(0xE4, HEX); return; }
+                    int32_t custom_rep_signed = atol(rep_str);
+                    executarFastActionRepeat((uint8_t)valor, custom_rep_signed);
                     return;
                 }
             }
