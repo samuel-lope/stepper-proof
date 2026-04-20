@@ -39,6 +39,7 @@ const translations = {
 
         // ── Global Config Cards ───────────────────────────────────────────
         'fastaction.title': 'Fast Action (Key 18)',
+        'jog.title': 'Jog Scrubber (Key 1B)',
         'global.pause.title': 'Global Pause (Key 04)',
         'global.pause.desc': 'Fixed delay automatically injected between all lines in the motor queue.',
         'global.pause.placeholder': 'e.g. 1000',
@@ -207,6 +208,7 @@ const translations = {
 
         // ── Global Config Cards ───────────────────────────────────────────
         'fastaction.title': 'Ações Rápidas (Key 18)',
+        'jog.title': 'Modo Jog (Key 1B)',
         'global.pause.title': 'Pausa Global (Key 04)',
         'global.pause.desc': 'Delay fixo injetado automaticamente entre todas as linhas da fila do motor.',
         'global.pause.placeholder': 'Ex: 1000',

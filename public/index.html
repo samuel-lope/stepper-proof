@@ -454,6 +454,44 @@
                     </div>
                 </div>
 
+                <!-- Jog Mode Sliders -->
+                <div class="bg-gradient-to-tr from-navy to-navy-light p-4 rounded-2xl border border-white/10 shadow-lg shadow-navy/30 flex flex-col hover:border-orange/20 transition-colors">
+                    <div class="flex items-center gap-2 mb-4">
+                        <svg aria-hidden="true" class="w-4 h-4 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                        </svg>
+                        <h3 class="text-sm font-semibold text-cream" data-i18n="jog.title">Jog Scrubber (Key 1B)</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <!-- Jog Motor 1 -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] font-bold text-orange uppercase tracking-wider">M1 (Slot 0)</span>
+                                <span class="text-[10px] font-mono text-cream/70 bg-black/20 px-2 flex items-center rounded border border-white/5" id="jog-val-1">0</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="jog-min-1" value="-100" class="w-12 bg-black/20 text-cream/70 text-[10px] tabular-nums text-center rounded border border-white/10 outline-none focus-visible:border-orange/50 py-1" aria-label="Min value" title="Min">
+                                <input type="range" id="jog-slider-1" min="-100" max="100" value="0" class="w-full h-1.5 bg-black/40 rounded-lg appearance-none cursor-pointer disabled:opacity-50" disabled aria-label="Jog Motor 1">
+                                <input type="number" id="jog-max-1" value="100" class="w-12 bg-black/20 text-cream/70 text-[10px] tabular-nums text-center rounded border border-white/10 outline-none focus-visible:border-orange/50 py-1" aria-label="Max value" title="Max">
+                            </div>
+                        </div>
+
+                        <!-- Jog Motor 2 -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-[10px] font-bold text-amber uppercase tracking-wider">M2 (Slot 1)</span>
+                                <span class="text-[10px] font-mono text-cream/70 bg-black/20 px-2 flex items-center rounded border border-white/5" id="jog-val-2">0</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="jog-min-2" value="-100" class="w-12 bg-black/20 text-cream/70 text-[10px] tabular-nums text-center rounded border border-white/10 outline-none focus-visible:border-amber/50 py-1" aria-label="Min value" title="Min">
+                                <input type="range" id="jog-slider-2" min="-100" max="100" value="0" class="w-full h-1.5 bg-black/40 rounded-lg appearance-none cursor-pointer disabled:opacity-50" disabled aria-label="Jog Motor 2">
+                                <input type="number" id="jog-max-2" value="100" class="w-12 bg-black/20 text-cream/70 text-[10px] tabular-nums text-center rounded border border-white/10 outline-none focus-visible:border-amber/50 py-1" aria-label="Max value" title="Max">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <!-- Emergency Stop -->
                     <button id="btn-stop" disabled

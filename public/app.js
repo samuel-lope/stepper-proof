@@ -21,7 +21,8 @@
             'btn-run', 'btn-stop', 'btn-run-one',
             'btn-set-pause', 'btn-repeat-all',
             'btn-save-preset', 'btn-fast-0', 'btn-fast-1',
-            'btn-fast-2', 'btn-fast-3', 'btn-fast-4'
+            'btn-fast-2', 'btn-fast-3', 'btn-fast-4',
+            'jog-slider-1', 'jog-slider-2'
         ].map(id => document.getElementById(id));
 
         // ── Notification System ───────────────────────────────────────────────
@@ -724,6 +725,48 @@
                 btn.classList.add('border-white/10', 'bg-white/10', 'text-cream');
                 showToast(t('toast.loop.off'), 'info', 'toast.loop.off');
             }
+        });
+
+        // ── Jog Mode (Sliders) ────────────────────────────────────────────────
+
+        const jogVal1 = document.getElementById('jog-val-1');
+        const jogMin1 = document.getElementById('jog-min-1');
+        const jogMax1 = document.getElementById('jog-max-1');
+        const slider1 = document.getElementById('jog-slider-1');
+
+        let lastJog1 = 0;
+        
+        jogMin1?.addEventListener('change', e => { if(slider1) slider1.min = e.target.value; });
+        jogMax1?.addEventListener('change', e => { if(slider1) slider1.max = e.target.value; });
+        slider1?.addEventListener('input', async (e) => {
+            let newVal = parseInt(e.target.value);
+            jogVal1.textContent = newVal;
+            if (newVal > lastJog1) {
+                if(port) await sendCommand('1B:0:1');
+            } else if (newVal < lastJog1) {
+                if(port) await sendCommand('1B:0:-1');
+            }
+            lastJog1 = newVal;
+        });
+
+        const jogVal2 = document.getElementById('jog-val-2');
+        const jogMin2 = document.getElementById('jog-min-2');
+        const jogMax2 = document.getElementById('jog-max-2');
+        const slider2 = document.getElementById('jog-slider-2');
+
+        let lastJog2 = 0;
+
+        jogMin2?.addEventListener('change', e => { if(slider2) slider2.min = e.target.value; });
+        jogMax2?.addEventListener('change', e => { if(slider2) slider2.max = e.target.value; });
+        slider2?.addEventListener('input', async (e) => {
+            let newVal = parseInt(e.target.value);
+            jogVal2.textContent = newVal;
+            if (newVal > lastJog2) {
+                if(port) await sendCommand('1B:1:1');
+            } else if (newVal < lastJog2) {
+                if(port) await sendCommand('1B:1:-1');
+            }
+            lastJog2 = newVal;
         });
 
         // ── Alert History Modal ───────────────────────────────────────────────
