@@ -734,18 +734,34 @@
         const jogMax1 = document.getElementById('jog-max-1');
         const slider1 = document.getElementById('jog-slider-1');
 
-        let timeoutJog1 = null;
+        let lastJog1 = 0;
+        let pendingJog1 = 0;
+        let isFlushingJog1 = false;
         
         jogMin1?.addEventListener('change', e => { if(slider1) slider1.min = e.target.value; });
         jogMax1?.addEventListener('change', e => { if(slider1) slider1.max = e.target.value; });
+        
+        async function flushJog1() {
+            if (isFlushingJog1 || pendingJog1 === 0) return;
+            isFlushingJog1 = true;
+            while (pendingJog1 !== 0) {
+                let dir = pendingJog1 > 0 ? 1 : -1;
+                if (port) await sendCommand(`1B:0:${dir}`);
+                pendingJog1 -= dir;
+                await new Promise(r => setTimeout(r, 150)); // Delay para evitar E0
+            }
+            isFlushingJog1 = false;
+        }
+
         slider1?.addEventListener('input', (e) => {
             let newVal = parseInt(e.target.value);
             jogVal1.textContent = newVal;
             
-            clearTimeout(timeoutJog1);
-            timeoutJog1 = setTimeout(async () => {
-                if (port) await sendCommand(`1B:0:${newVal}`);
-            }, 300); // 300ms de atraso (Rastreio)
+            let diff = newVal - lastJog1;
+            lastJog1 = newVal;
+            
+            pendingJog1 += diff;
+            flushJog1();
         });
 
         const jogVal2 = document.getElementById('jog-val-2');
@@ -753,18 +769,34 @@
         const jogMax2 = document.getElementById('jog-max-2');
         const slider2 = document.getElementById('jog-slider-2');
 
-        let timeoutJog2 = null;
+        let lastJog2 = 0;
+        let pendingJog2 = 0;
+        let isFlushingJog2 = false;
 
         jogMin2?.addEventListener('change', e => { if(slider2) slider2.min = e.target.value; });
         jogMax2?.addEventListener('change', e => { if(slider2) slider2.max = e.target.value; });
+
+        async function flushJog2() {
+            if (isFlushingJog2 || pendingJog2 === 0) return;
+            isFlushingJog2 = true;
+            while (pendingJog2 !== 0) {
+                let dir = pendingJog2 > 0 ? 1 : -1;
+                if (port) await sendCommand(`1B:1:${dir}`);
+                pendingJog2 -= dir;
+                await new Promise(r => setTimeout(r, 150)); // Delay para evitar E0
+            }
+            isFlushingJog2 = false;
+        }
+
         slider2?.addEventListener('input', (e) => {
             let newVal = parseInt(e.target.value);
             jogVal2.textContent = newVal;
             
-            clearTimeout(timeoutJog2);
-            timeoutJog2 = setTimeout(async () => {
-                if (port) await sendCommand(`1B:1:${newVal}`);
-            }, 300); // 300ms de atraso (Rastreio)
+            let diff = newVal - lastJog2;
+            lastJog2 = newVal;
+            
+            pendingJog2 += diff;
+            flushJog2();
         });
 
         // ── Alert History Modal ───────────────────────────────────────────────
