@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.1] - 2026-04-20
+
+### Changed
+- **Mapeamento de Hardware**: GPIO de Enable do Motor 1 alterado de **D8** para **D6**, otimizando a disposição física no Port D do ATmega328P.
+
+### Fixed
+- **Sanitização de Comandos**: Adicionada validação de ID de motor para os comandos `16` (Enable) e `17` (Disable), prevenindo execuções em IDs inexistentes.
+
+### Added
+- **Code Documentation**: Inclusão de cabeçalhos profissionais JSDoc/Doxygen-style nas funções principais do firmware para melhor manutenibilidade.
+
+
 ## [1.5.0] - 2026-04-17
 
 ### Added

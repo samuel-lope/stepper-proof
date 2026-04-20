@@ -169,6 +169,12 @@ void setup() {
 // FUNCIONAMENTO DE BAIXO NÍVEL / TIMER DDS HARDWARE
 // ---------------------------------------------------------
 
+/**
+ * @brief Configura o hardware e inicia o Timer1 para o Motor 1.
+ * @param passos Quantidade de pulsos a serem disparados.
+ * @param intervalo_us Tempo entre pulsos em microssegundos.
+ * @param direcao Logica física (0 ou 1).
+ */
 void moverMotor1(uint32_t passos, uint32_t intervalo_us, uint8_t direcao) {
     if (passos == 0 || m1_em_movimento) return;
 
@@ -195,6 +201,9 @@ void moverMotor1(uint32_t passos, uint32_t intervalo_us, uint8_t direcao) {
     sei();
 }
 
+/**
+ * @brief Configura o hardware e inicia o Timer1 para o Motor 2 (OCR1B).
+ */
 void moverMotor2(uint32_t passos, uint32_t intervalo_us, uint8_t direcao) {
     if (passos == 0 || m2_em_movimento) return;
 
@@ -479,12 +488,14 @@ void interpretarComando(char* linha) {
                 else if (chave == 0x16) { // enableMotor (EN = LOW, ativo baixo TB6600)
                     if (valor == 1)      { PORTD &= ~(1 << M1_EN_PIN); }
                     else if (valor == 2) { PORTD &= ~(1 << M2_EN_PIN); }
+                    else { return; } // Ignora IDs inválidos
                     Serial.print(0xB7, HEX); Serial.print(':'); Serial.println(valor);
                     return;
                 }
                 else if (chave == 0x17) { // disableMotor (EN = HIGH)
                     if (valor == 1)      { PORTD |= (1 << M1_EN_PIN); }
                     else if (valor == 2) { PORTD |= (1 << M2_EN_PIN); }
+                    else { return; } // Ignora IDs inválidos
                     Serial.print(0xB8, HEX); Serial.print(':'); Serial.println(valor);
                     return;
                 }

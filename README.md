@@ -6,7 +6,7 @@ Controle simultâneo e independente de alta precisão para dois motores de passo
 
 ### 1. Hardware Setup
 Conecte os motores ao MCU (Arduino Uno/Nano):
-- **Motor 1:** DIR(D2), PUL(D3), ENA(D8)
+- **Motor 1:** DIR(D2), PUL(D3), ENA(D6)
 - **Motor 2:** DIR(D4), PUL(D5), ENA(D7)
 
 *(Nota: Os drivers usam lógica de Enable invertida, LOW para ativar).*
@@ -34,7 +34,7 @@ Execute o servidor local apontando para a pasta `public/` (ex: extensão *Live S
 | Configuração | Descrição | Onde Localizar | Padrão |
 | :--- | :--- | :--- | :--- |
 | **Baud Rate** | Velocidade da Serial | `stepcontrol.ino` e `<select>` do `index.html` | `9600` |
-| **Pinos de Controle M1** | DIR, PUL e EN para o Motor 1 | Macros em `stepcontrol.ino` | D2, D3, D8 |
+| **Pinos de Controle M1** | DIR, PUL e EN para o Motor 1 | Macros em `stepcontrol.ino` | D2, D3, D6 |
 | **Pinos de Controle M2** | DIR, PUL e EN para o Motor 2 | Macros em `stepcontrol.ino` | D4, D5, D7 |
 | **Safe Clamp** | Limite menor de pulso | Loop principal interno em `.ino`| `50 µs` |
 
