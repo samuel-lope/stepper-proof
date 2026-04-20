@@ -131,11 +131,14 @@ const translations = {
         // ── Settings Modal System ─────────────────────────────────────────
         'settings.tab.dict': 'Dictionary',
         'settings.tab.vis': 'Visibility',
+        'settings.tab.motor': 'Motor Config',
         'settings.dict.title': 'Dictionary Override',
         'settings.dict.desc': 'Modify these values to redefine hardware responses and internal logs. Leave empty to use system defaults.',
         'settings.dict.save': 'Save Overrides',
         'settings.vis.title': 'Alert Visibility',
         'settings.vis.desc': 'Uncheck an alert type to silence it continuously across the local session. Settings apply immediately.',
+        'settings.motor.title': 'Hardware Definition',
+        'settings.motor.desc': 'Define Pulses Per Revolution. Changing this directly adjusts the limits in the Jog Scrubber.',
 
         // ── Dictionary Categories ─────────────────────────────────────────
         'dict.cat.ui': 'Interface & Labels',
@@ -300,11 +303,14 @@ const translations = {
         // ── Settings Modal System ─────────────────────────────────────────
         'settings.tab.dict': 'Dicionário',
         'settings.tab.vis': 'Visibilidade',
+        'settings.tab.motor': 'Cfg Motor',
         'settings.dict.title': 'Substituição de Dicionário',
-        'settings.dict.desc': 'Modifique esses valores para redefinir respostas de hardware e logs internos. Deixe em branco para os valores originais.',
-        'settings.dict.save': 'Salvar Substituições',
+        'settings.dict.desc': 'Modifique esses valores para redefinir as respostas de hardware e logs internos. Deixe vazio para usar os padrões do sistema.',
+        'settings.dict.save': 'Salvar Alteraçoes',
         'settings.vis.title': 'Visibilidade de Alertas',
-        'settings.vis.desc': 'Desmarque um tipo de alerta para silenciá-lo continuamente durante a sessão local. As definições são aplicadas imediatamente.',
+        'settings.vis.desc': 'Desmarque um tipo de alerta para silenciá-lo continuamente durante a sessão local. As configurações são aplicadas imediatamente.',
+        'settings.motor.title': 'Definição de Hardware',
+        'settings.motor.desc': 'Defina os Pulsos Por Revolução. Alterar isso ajusta diretamente os limites no Jog Scrubber.',
 
         // ── Dictionary Categories ─────────────────────────────────────────
         'dict.cat.ui': 'Interface e Rótulos',
