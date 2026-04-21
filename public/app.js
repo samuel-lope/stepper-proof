@@ -27,6 +27,11 @@ const controls = [
 
 // ── Notification System ───────────────────────────────────────────────
 
+/**
+ * Persistent alert logger.
+ * @param {string} message - The translated alert text.
+ * @param {'info'|'success'|'warning'|'error'|'out'} type - Alert priority/style.
+ */
 function logAlert(message, type) {
     let alerts = JSON.parse(localStorage.getItem('stepper_alerts') || '[]');
     alerts.unshift({ id: 'alert_' + Date.now(), message, type, date: new Date().toISOString() });
@@ -40,6 +45,12 @@ function logAlert(message, type) {
     }
 }
 
+/**
+ * Displays an interactive toast notification and logs it to history.
+ * @param {string} message - Content of the notification.
+ * @param {'info'|'success'|'warning'|'error'|'out'} [type='info'] - Visual style.
+ * @param {string|null} [messageKey=null] - Unique key to check against visibility filters.
+ */
 function showToast(message, type = 'info', messageKey = null) {
     if (messageKey) {
         const hiddenAlerts = JSON.parse(localStorage.getItem('stepper_hidden_alerts') || '[]');
@@ -103,6 +114,10 @@ btnConnect.addEventListener('click', async () => {
     else await connectSerial();
 });
 
+/**
+ * Requests a Serial Port and initializes the connection loop.
+ * Triggers auto-fetch of HW presets.
+ */
 async function connectSerial() {
     try {
         port = await navigator.serial.requestPort();
@@ -278,6 +293,10 @@ function translateIncomingHex(line) {
     return { text: `RAW_HW > ${line}`, type: 'info' };
 }
 
+/**
+ * Continuous Serial reader loop.
+ * Buffers received data and processes it line by line.
+ */
 async function readLoop() {
     let lineBuffer = '';
     while (port && port.readable && keepReading) {
@@ -336,6 +355,11 @@ async function sendRawString(commandString) {
     return true;
 }
 
+/**
+ * Generic Serial writer for H8P commands.
+ * Handles auto-logging for outgoing "TX" packets.
+ * @param {string} commandString - The command to send (no newline needed).
+ */
 async function sendCommand(commandString) {
     if (await sendRawString(commandString)) {
         await new Promise(r => setTimeout(r, 60));
@@ -443,6 +467,11 @@ document.getElementById('btn-save-queue').addEventListener('click', async () => 
 
 // ── Library (LocalStorage) ────────────────────────────────────────────
 
+/**
+ * Saves a sequence to the browser's LocalStorage.
+ * @param {string} name - The display name of the sequence.
+ * @param {string[]} commands - Array of command strings.
+ */
 function saveSequence(name, commands) {
     let library = JSON.parse(localStorage.getItem('stepper_library') || '[]');
     library.unshift({ id: 'seq_' + Date.now(), name, commands, date: new Date().toISOString() });
@@ -1128,6 +1157,10 @@ function updateJogMaxLimits(slot, steps) {
     recalcJogMaxLimits();
 }
 
+/**
+ * Synchronizes the max limits of the Jog Scrubbers based on the current 
+ * configuration and pulses/rev (CPR) settings.
+ */
 function recalcJogMaxLimits() {
     const cpr = parseInt(localStorage.getItem('stepper_motor_cpr') || '1600');
     const inpCpr = document.getElementById('inp-motor-cpr');

@@ -19,37 +19,36 @@
  * 16 : enableMotor  (Habilita driver do motor. Ex: 16:1 ou 16:2 — EN LOW)
  * 17 : disableMotor (Desabilita driver do motor. Ex: 17:1 ou 17:2 — EN HIGH)
  * 18 : fastAction   (Executa preset EEPROM imediatamente. Ex: 18:0 a 18:4)
- * 19 : writePreset  (Grava preset na EEPROM. Ex: 19:2,10:800,11:300,12:0,13:1,14:0,15:1)
- * 1A : readPreset   (Lê preset da EEPROM. Ex: 1A:2 — retorna parâmetros do slot 2)
+ * 19 : writePreset  (Grava preset na EEPROM. Ex: 19:2,10:800,11:300...)
+ * 1A : readPreset   (Lê preset da EEPROM. Ex: 1A:2)
  * 1B : fastActionRep(Executa preset EEPROM com loop customizado. Ex: 1B:0:-4)
- *
- * Exemplo de envio via Serial (Motor 2, 1600 passos, vel 500, dir 1): 
- * 10:1600,11:500,12:1,15:2
  *
  * --- ALERTAS E RESPOSTAS (RECEBIDOS DO ARDUINO) ---
  * A0 : Sistema Inicializado com Sucesso
  * B0 : Iniciando execucao da fila
  * B1 : Motor PARADO e Fila limpa
  * B2 : Pausa global definida
+ * B3 : [TELEMETRIA] Pausa em andamento (ms)
  * B4 : Modo repeatAll ATIVADO
  * B5 : Fila executada com sucesso
  * B6 : Modo repeatAll DESATIVADO
  * B7 : Motor habilitado (EN = LOW)
  * B8 : Motor desabilitado (EN = HIGH)
- * B9 : Preset EEPROM gravado com sucesso
- * BA : Preset EEPROM lido (dump de parâmetros)
+ * B9 : Preset EEPROM gravado (Eco de linha)
+ * BA : Preset EEPROM lido (Dump de parâmetros)
  * BB : fastAction executado com sucesso
- * BC : fastActionRep executado com sucesso (override de repetições efetuado)
- * C0 : Linha salva com sucesso (Retorna índice e parâmetros incluindo Motor)
- * C1 : [TELEMETRIA] Status de Slot na Fila (uso RAM)
- * D0 : [TELEMETRIA] Linha ativada pelos Optoacopladores do Motor 
- * E0 : Erro: Motor ja esta em execucao
- * E1 : Erro: Fila vazia
- * E2 : Erro: Fila cheia
- * E3 : Erro de sintaxe (Falta '10' ou '11')
+ * BC : fastActionRep executado com sucesso (override rep/dir)
+ * C0 : Linha salva com sucesso (Retorna Slot e parâmetros)
+ * C1 : [TELEMETRIA] Contagem de slots na SRAM
+ * D0 : [TELEMETRIA] Linha ativada (MNN: Motor e Slot)
+ * E0 : Erro: Motor já em execução
+ * E1 : Erro: Fila dSRAM vazia
+ * E2 : Erro: Fila SRAM cheia
+ * E3 : Erro de sintaxe (Parâmetros obrigatórios ausentes)
  * E4 : Erro: Índice de preset inválido (fora de 0-4)
  * =================================================================================
  */
+
 
 #include <Arduino.h>
 #include <avr/io.h>

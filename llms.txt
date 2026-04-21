@@ -2,29 +2,33 @@
 > Controle simultâneo e independente de dois motores de passo TB6600 via Web Serial API.
 
 ## Core Files
-- [stepcontrol/stepcontrol.ino]: Firmware principal em C++/AVR. Timer1 Dual-Channel (COMPA + COMPB) com dois pipelines paralelos de motor independentes. Comandos 01-04 (fluxo), 10-15 (parâmetros de motor), 16-17 (controle de driver), 18 (fastAction via EEPROM), 19-1A (gestão de presets).
-- [public/index.html]: Interface de controle (Vanilla JS). Web Serial, Command Builder com seletor de motor + toggle de driver, Telemetria Dual M1/M2 e Protocolo H8P. Layout otimizado com altura fixa de 600px para o container principal.
-- [public/i18n.js]: Engine de internacionalização dependency-free. Dicionários EN-US e PT-BR. Função `t(key, params)` com interpolação de variáveis. Event `langchange` para elementos dinâmicos.
-- [public/app.js]: Lógica principal da interface — conexão serial, construção de comandos, tradução de respostas hex, controle de driver e telemetria.
-- [docs/INTEGRATION.md]: Especificação completa do protocolo H8P — todos os comandos, respostas, fluxos de dados e detalhes internos do firmware.
-- [CHANGELOG.md]: Histórico de versões do projeto.
+- [stepcontrol/stepcontrol.ino]: Firmware AVR (C++). Timer1 Dual-Channel Freerunning. Protocolo H8P (01-1B).
+- [public/app.js]: Main UI logic. Serial link, H8P parser, live telemetry, and jog scrubbers.
+- [public/i18n.js]: Translation engine (EN/PT) with dynamic dictionary override system.
+- [docs/INTEGRATION.md]: Technical API Reference. Exhaustive H8P protocol specification.
 
 ## Key Concepts
-- **Protocolo H8P**: Comunicação via chaves hexadecimais (ex: `10`, `11`, `15`) para economia máxima de SRAM no ATmega328P.
-- **Timer1 Dual-Channel Freerunning**: ISR COMPA para M1, ISR COMPB para M2. Cada canal calcula seu `next_compare` independentemente — zero interferência mútua de timing.
-- **Parâmetro `15` (Motor Alvo)**: Chave que seleciona o motor destino (`1` ou `2`) por slot de fila. Default retrocompatível para Motor 1.
-- **Comandos `16`/`17` (Enable/Disable)**: `16:X` ativa o driver TB6600 do motor X (EN→LOW), `17:X` desativa (EN→HIGH). Respostas: `B7:X` (habilitado), `B8:X` (desabilitado). UI usa checkboxes integrados ao seletor de motor.
-- **EEPROM Fast Action**: Sistema de 5 presets persistentes (`18`, `19`, `1A`) armazenados na memória não volátil, permitindo execução instantânea de movimentos complexos sem recarregar via interface.
-- **Internacionalização (i18n)**: Engine em `i18n.js` com dicionários EN/PT. Strings via `data-i18n` attributes. Custom event `langchange` atualiza elementos dinâmicos sem perder estado de conexão.
-- **`fila_iniciada` Gate Flag**: Flag booleana que previne limpeza prematura da fila antes do comando RUN (`01`). Crítica para correctness da máquina de estados.
-- **Comando `03` Boolean**: `03:1` ativa loop infinito, `03:0` desativa. Sempre enviado antes do `01` pela interface. MCU responde `B4` (ON) ou `B6` (OFF).
-- **Library Load Cleanup**: Ao carregar sequência salva, a interface envia `02` (STOP) e reseta a fila local antes de injetar — previne comandos residuais na SRAM.
-- **Segurança Atômica**: Proteção `cli`/`sei` em operações críticas. Safety Clamp de 50µs mínimo.
-- **Baud Rate**: 9600 bps.
-- **Queue System**: Fila de até 20 slots na SRAM, roteados por `motor_id` para M1 ou M2.
-- **Live Telemetry Dual**: Monitoramento reativo de SRAM, estado de execução e estado do driver (ON/OFF) de cada motor via sinais passivos `C1`, `D0`, `B3`, `B7`, `B8`.
-- **Configurações & Customização**: Sistema de *Settings* (`modal-settings`) com persistência em `localStorage`.
-    - `stepper_custom_i18n`: Armazena substituições de dicionário (*Dictionary Overrides*) aplicadas em tempo real.
-    - `stepper_hidden_alerts`: Lista de identificadores (`messageKey`) de notificações silenciadas pelo usuário.
-    - **Auto-save**: Todas as alterações nos painéis de configuração são salvas instantaneamente via ouvintes `input` e `change`.
-- **UI/UX Optimization (Layout)**: Painel escuro (Dark Theme), organização lateral para Live Telemetry em oposição ao construtor de filas e integração do botão de *Single Step* horizontal, evitando totalmente rolagem vertical em navegadores e organizando o fluxo de visão (Golden Ratio 62:38). Container principal com altura absoluta de 600px.
+
+### H8P Protocol (Hex 8-bit Protocol)
+- **Architecture**: Pair-based `Key:Value` hex strings (ex: `10:1600`) separated by commas.
+- **Safety**: Minimum interval clamp (50µs) and atomic hardware stops (`cli`/`sei`).
+- **Memory**: Optimized for ATmega328P SRAM (20 slots MAX).
+
+### Dual-Channel Hardware Timing
+- **M1**: Driven by `TIMER1_COMPA_vect` (OCR1A).
+- **M2**: Driven by `TIMER1_COMPB_vect` (OCR1B).
+- **Independence**: Zero-jitter execution due to independent compare registries.
+
+### Reactive Telemetry
+- **Signals**: `C0/C1` (SRAM status), `D0` (Active line tracking), `B7/B8` (Driver EN state).
+- **Decoding**: `D0:MNN` maps to Motor M and Slot NN.
+
+### Persistence & Customization
+- **EEPROM**: 5 action slots (`18`, `19`, `1A`) for driver-less execution.
+- **LocalStorage**: Custom i18n overrides and alert visibility preferences.
+- **Auto-Sync**: UI automatically fetches HW states upon successful connection.
+
+## Operational Constraints
+- **Serial Baud Rate**: Fixed at **9600 bps**.
+- **Motor Compatibility**: Pulse/Dir/Enable interface (NEMA 17/23/34 via TB6600).
+- **Atomic Stop**: Command `02` kills all interrupts and clears all queues.

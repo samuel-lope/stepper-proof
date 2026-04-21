@@ -27,39 +27,64 @@ Ao ser energizado ou resetado, o Arduino emite um sinal de prontidão:
 
 Para economizar SRAM (2KB disponíveis no ATmega328P), o sistema não processa strings longas. Usa chaves de 1 byte (2 chars hexadecimais).
 
-### 📤 Comandos de Fluxo (Web → Arduino)
+### 📤 Protocolo de Saída (Web → Arduino)
 
-Disparam ações imediatas no sistema de estados.
+Comandos injetados via Serial para controle de fluxo e estado.
 
-| Chave | Ação | Descrição |
-| :--- | :--- | :--- |
-| `01` | **RUN** | Inicia a execução sequencial da fila. Ativa a flag `fila_iniciada`. |
-| `02` | **STOP** | Interrompe ambos os canais do Timer1 atomicamente (`cli`/`sei`), limpa a fila e desativa os motores. |
-| `03:1` | **REPEAT ON** | Ativa `repetir_todas_linhas = true`. Envia resposta `B4`. |
-| `03:0` | **REPEAT OFF** | Desativa `repetir_todas_linhas = false`. Envia resposta `B6`. |
-| `04:X` | **PAUSE GLOBAL** | Define pausa global (ms) entre todas as transições de linha. Ex: `04:500` |
-| `16:X` | **ENABLE MOTOR** | Ativa o driver TB6600 do motor X (EN → LOW). Resposta: `B7:X`. |
-| `17:X` | **DISABLE MOTOR** | Desativa o driver TB6600 do motor X (EN → HIGH, eixo livre). Resposta: `B8:X`. |
-| `18:X` | **FAST ACTION** | Executa instantaneamente o preset gravado no slot `X` (0-4) da EEPROM. Limpa a fila antes. |
-| `19:...` | **WRITE PRESET** | Salva preset no slot `X` da EEPROM. Sintaxe: `19:X,10:step,11:vel...`. |
-| `1A:X` | **READ PRESET** | Solicita parâmetros do slot `X` da EEPROM. Retorna `BA:X,10:step...`. |
-| `1B:X:Y` | **FAST ACTION OVERRIDE** | Executa preset `X` substituindo suas repetições por `Y` (`1B:slot:rep`). Se `Y` for negativo, a direção do motor é invertida de forma atômica. |
+#### `01` - RUN
+Inicia a execução simultânea das filas de motor (`m1_executando = true`, `m2_executando = true`).
+- **Resposta**: `B0` (Sucesso) ou `E1` (Fila Vazia).
 
-### 📥 Parâmetros de Motor (Web → Arduino)
+#### `02` - STOP (Emergência)
+Interrompe instantaneamente todos os pulsos via Timer1 de forma atômica (`cli`). Limpa a SRAM e EEPROM buffers.
+- **Resposta**: `B1` (Sucesso).
 
-Enviados como string única com múltiplos campos separados por vírgula.
+#### `03:X` - Loop Mode
+Define se a fila deve recomeçar do zero após atingir o final.
+- `03:1`: Ativa Loop Infinito.
+- `03:0`: Desativa Loop Infinito.
+- **Resposta**: `B4` (Ativo) ou `B6` (Inativo).
 
-**Exemplo Motor 1:** `10:1600,11:500,12:1,13:2,15:1`
-**Exemplo Motor 2:** `10:800,11:300,12:0,15:2`
+#### `04:X` - Global Pause
+Define um atraso em milissegundos injetado entre comandos da fila.
+- **Parâmetro**: `X` = milissegundos.
+- **Resposta**: `B2:X`.
 
-| Chave | Parâmetro | Unidade | Obrigatório | Default |
-| :--- | :--- | :--- | :--- | :--- |
-| `10` | Steps | Quantidade de passos | ✅ Sim | — |
-| `11` | Intervalo (Vel) | Microssegundos (µs) | ✅ Sim (Min: 50) | — |
-| `12` | Direção | `0` ou `1` | ❌ Não | `0` |
-| `13` | Repeat | Quantidade (`0` = infinito) | ❌ Não | `1` |
-| `14` | Pause After | Milissegundos (ms) | ❌ Não | `0` |
-| `15` | Motor Alvo | `1` ou `2` | ❌ Não | `1` |
+#### `16:X` / `17:X` - Driver Control
+Habilita ou desabilita fisicamente o estágio de potência do driver TB6600 (EN Pin).
+- `16:X`: Habilita Motor X (EN → LOW).
+- `17:X`: Desabilita Motor X (EN → HIGH).
+- **Resposta**: `B7:X` ou `B8:X`.
+
+#### `18:X` - Fast Action (EEPROM)
+Executa o preset armazenado no slot `X` (0-4) da EEPROM.
+- **Resposta**: `BB:X,...` (Sucesso) ou `E4` (Slot Inválido).
+
+#### `19:X,...` - Write Preset
+Grava uma linha completa de comando no slot `X` da EEPROM.
+- **Sintaxe**: `19:X,10:step,11:vel,12:dir,13:repeat,14:pause,15:motor`
+- **Resposta**: `B9:X,...`.
+
+#### `1A:X` - Read Preset
+Solicita o dump de dados do slot `X` da EEPROM.
+- **Resposta**: `BA:X,...`.
+
+#### `1B:X:Y` - Scrubber / Jog
+Executa preset `X` com `Y` repetições forçadas. Se `Y` for negativo, inverte a direção original.
+- **Resposta**: `BC:X,...`.
+
+### 📥 Parâmetros de Motor (Data Injection)
+
+Enviados como string de campos hexadecimais separados por vírgula.
+
+| Chave | Parâmetro | Unidade | Obrigatório |
+|:---|:---|:---|:---|
+| `10` | **Steps** | Qtd Passos | ✅ Sim |
+| `11` | **Interval** | Microssegundos (µs) | ✅ Sim (Min: 50) |
+| `12` | **Direction**| `0` (REV) / `1` (FWD) | ❌ Não |
+| `13` | **Repeat** | Ciclos (`0` = ∞) | ❌ Não |
+| `14` | **Pause** | Millissegundos (ms) | ❌ Não |
+| `15` | **Target** | `1` (M1) / `2` (M2) | ❌ Não |
 
 > [!CAUTION]
 > **Safety Clamp de Frequência**: O firmware rejeita intervalos (`11`) menores que **50µs**. Valores abaixo disso causariam *starvation* de interrupções e travamento do MCU. A resposta de rejeição é `E3`.

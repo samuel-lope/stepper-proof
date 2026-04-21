@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+- Documentação revisada seguindo os novos templates 2025.
+- Comentários JSDoc abrangentes nas funções principais do frontend (`app.js` e `i18n.js`).
+- Refatoração da Referência de API em `INTEGRATION.md` para formato de endpoints técnicos.
+
+### Fixed
+- Sincronização do limite máximo do *Jog Slider* no primeiro pareamento serial (M1/M2).
+- Atualização dinâmica dos limites de *Jog* ao salvar ou ler configurações de preset.
+
+
 ## [1.5.1] - 2026-04-20
 
 ### Changed

@@ -381,6 +381,10 @@ function t(key, vars = {}) {
 }
 
 /** Apply all static data-i18n* attributes in the DOM. */
+/** 
+ * Scans the DOM for [data-i18n*] attributes and injects translated text.
+ * Handles textContent, placeholder, title, and aria-label.
+ */
 function applyTranslations() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         el.textContent = t(el.getAttribute('data-i18n'));
@@ -399,6 +403,9 @@ function applyTranslations() {
 }
 
 /** Highlight the active language button in the header toggle. */
+/** 
+ * Updates the visual state of language toggle buttons in the UI. 
+ */
 function updateLangButtons() {
     ['en-US', 'pt-BR'].forEach(lang => {
         const btn = document.querySelector(`[data-lang-btn="${lang}"]`);
