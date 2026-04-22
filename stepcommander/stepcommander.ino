@@ -32,7 +32,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 // --- Configurações da Serial ---
 // RX no pino 10 (conectar ao TX da placa principal)
 // TX no pino 11 (conectar ao RX da placa principal)
-SoftwareSerial mainSerial(10, 11); 
+SoftwareSerial mainSerial(10, 11);
 
 // --- Configurações do Teclado Matricial ---
 const byte ROWS = 4;
@@ -45,9 +45,9 @@ char keys[ROWS][COLS] = {
 };
 
 // Pinos conectados às linhas (R1, R2, R3, R4)
-byte rowPins[ROWS] = {9, 8, 7, 6}; 
+byte rowPins[ROWS] = {9, 8, 7, 6};
 // Pinos conectados às colunas (C1, C2, C3, C4)
-byte colPins[COLS] = {5, 4, 3, 2}; 
+byte colPins[COLS] = {5, 4, 3, 2};
 
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
@@ -57,10 +57,10 @@ const int MAX_INPUT_LEN = 12; // 16 colunas do LCD - 4 ("Cmd:") = 12
 
 void setup() {
   // Serial de Debug (opcional, pode ser vista no Monitor Serial do PC)
-  Serial.begin(9600); 
+  Serial.begin(9600);
   
   // Serial para comunicação com a placa principal
-  mainSerial.begin(9600); 
+  mainSerial.begin(9600);
   
   // Inicialização do LCD
   lcd.init();
