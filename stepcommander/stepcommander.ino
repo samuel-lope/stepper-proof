@@ -24,6 +24,7 @@
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
 #include <SoftwareSerial.h>
+#include <TM1638plus.h>
 
 // --- Configurações do LCD ---
 // Endereço 0x27, 16 colunas e 2 linhas
@@ -33,6 +34,13 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 // RX no pino 10 (conectar ao TX da placa principal)
 // TX no pino 11 (conectar ao RX da placa principal)
 SoftwareSerial mainSerial(10, 11);
+
+// --- Configurações do TM1638 (7 Segmentos) ---
+#define TM_STB A0
+#define TM_CLK A1
+#define TM_DIO A2
+bool high_freq = false; // Default para a maioria das placas
+TM1638plus tm(TM_STB, TM_CLK, TM_DIO, high_freq);
 
 // --- Configurações do Teclado Matricial ---
 const byte ROWS = 4;
@@ -66,11 +74,17 @@ void setup() {
   lcd.init();
   lcd.backlight();
   
+  // Inicialização do TM1638
+  tm.displayBegin();
+  tm.reset();
+  
   // Interface Inicial
   lcd.setCursor(0, 0);
   lcd.print("Cmd:");
   lcd.setCursor(0, 1);
   lcd.print("Pronto.");
+  
+  updateTM1638(); // Exibe vazio
   
   Serial.println("Commander Iniciado.");
 }
@@ -154,6 +168,34 @@ void updateLCD() {
   lcd.print(inputBuffer);
 }
 
+void updateTM1638() {
+  String tmString = "";
+  // Converte ':' e ',' para '.' para que não ocupem um dígito inteiro no display de 7 segmentos
+  for (int i = 0; i < inputBuffer.length(); i++) {
+    char c = inputBuffer.charAt(i);
+    if (c == ':' || c == ',') {
+      tmString += ".";
+    } else {
+      tmString += c;
+    }
+  }
+  
+  // Preenche o resto com espaços para garantir que os 8 dígitos sejam sobrepostos corretamente
+  String paddedStr = tmString;
+  int rawChars = 0;
+  for(int i = 0; i < tmString.length(); i++) {
+     if(tmString.charAt(i) != '.') rawChars++;
+  }
+  
+  while(rawChars < 8) {
+      paddedStr += " ";
+      rawChars++;
+  }
+  
+  // A biblioteca exibe a string formatada no display
+  tm.displayText(paddedStr.c_str());
+}
+
 void loop() {
   processIncomingMessage();
   
@@ -211,5 +253,6 @@ void loop() {
     }
     
     updateLCD();
+    updateTM1638();
   }
 }
