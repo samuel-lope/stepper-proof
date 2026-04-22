@@ -27,6 +27,7 @@ Execute o servidor local apontando para a pasta `public/` (ex: extensão *Live S
 - **EEPROM Fast Action:** Execução de 5 comandos pré-gravados (`18`, `19`, `1A`).
 - **Customização Total:** Painel de *Settings* com *Dictionary Override* e *Visibility Control*.
 - **Internacionalização (i18n):** Suporte nativo a `EN-US` e `PT-BR`.
+- **StepCommander (Interface Física):** Novo módulo periférico (Arduino secundário) com Teclado Matricial 4x4 e LCD 16x2 para controle sem PC via protocolo H8P.
 
 ## Configuration
 
@@ -42,6 +43,7 @@ Execute o servidor local apontando para a pasta `public/` (ex: extensão *Live S
 - [Referência de API (Protocolo H8P)](./docs/INTEGRATION.md)
 - [Arquitetura & Fluxo](./docs/INTEGRATION.md#architectura-de-comunicação)
 - [Arquivo de Indexação para IA (llms)](./llms.txt)
+- [StepCommander (Código da Interface)](./stepcommander/stepcommander.ino)
 - [Changelog](./CHANGELOG.md)
 
 ## Protocolo de Comunicação (Índice Hexadecimal)
@@ -93,6 +95,22 @@ Execute o servidor local apontando para a pasta `public/` (ex: extensão *Live S
 | `E2` | Erro: Fila SRAM cheia |
 | `E3` | Erro de sintaxe (Parâmetros obrigatórios ausentes) |
 | `E4` | Erro: Índice de preset inválido (fora de 0-4) |
+
+## Hardware Adicional: StepCommander
+
+Interface física de controle operando em um Atmega328P independente.
+
+### Configuração de Pinos (Commander)
+- **Teclado 4x4:** Linhas (9, 8, 7, 6), Colunas (5, 4, 3, 2).
+- **LCD 16x2 I2C:** Endereço `0x27` (A4/A5).
+- **Comunicação:** SoftwareSerial (RX:10, TX:11) conectado ao TX/RX da placa principal.
+
+### Atalhos do Teclado
+- `*` vira `:`
+- `#` vira `,`
+- `*` seguido de `#` atua como **ENTER** (Envia comando).
+- `C` (Clear) limpa o buffer.
+- `D` (Delete) apaga o último caractere.
 
 ## Contributing
 

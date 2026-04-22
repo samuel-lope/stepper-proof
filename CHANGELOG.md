@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-04-22
+### Added
+- **StepCommander**: Nova interface de hardware periférica rodando em Atmega328P.
+- **Controle Físico**: Suporte a Teclado Matricial 4x4 com mapeamento customizado (`*` -> `:`, `#` -> `,`, `*`+`#` -> Enter).
+- **Feedback Visual**: Integração com LCD 16x2 via I2C (`0x27`) com tradução de códigos H8P para mensagens amigáveis.
+- **Comunicação Inter-Placas**: Implementação de link Serial via `SoftwareSerial` (10/11) para comando e telemetria remota.
+
 ## [Unreleased]
 ### Added
 - Documentação revisada seguindo os novos templates 2025.
