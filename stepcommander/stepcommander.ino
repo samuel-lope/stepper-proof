@@ -67,6 +67,7 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
 // --- Variáveis de Controle ---
 String inputBuffer = "";
+String lastCommand = "";
 const int MAX_INPUT_LEN = 12; // 16 colunas do LCD - 4 ("Cmd:") = 12
 
 void setup() {
@@ -178,15 +179,23 @@ void loop() {
         // Removemos o ':' do buffer, pois ele era apenas o '*'
         inputBuffer.remove(inputBuffer.length() - 1);
         
-        // Envia o comando para a placa principal
-        mainSerial.println(inputBuffer);
-        Serial.println("Enviado: " + inputBuffer); // Debug
+        if (inputBuffer.length() == 0 && lastCommand.length() > 0) {
+          inputBuffer = lastCommand;
+        } else if (inputBuffer.length() > 0) {
+          lastCommand = inputBuffer;
+        }
         
-        // Feedback Visual (Comentado)
-        // lcd.setCursor(0, 1);
-        // lcd.print("                ");
-        // lcd.setCursor(0, 1);
-        // lcd.print("Enviado.");
+        if (inputBuffer.length() > 0) {
+          // Envia o comando para a placa principal
+          mainSerial.println(inputBuffer);
+          Serial.println("Enviado: " + inputBuffer); // Debug
+          
+          // Feedback Visual (Comentado)
+          // lcd.setCursor(0, 1);
+          // lcd.print("                ");
+          // lcd.setCursor(0, 1);
+          // lcd.print("Enviado.");
+        }
         
         // Limpa o buffer após o envio
         inputBuffer = "";
