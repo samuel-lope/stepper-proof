@@ -7,7 +7,12 @@ CompileFlags:
     "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/cores/arduino",
     "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/variants/standard",
     "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/avr/include",
-    "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/libraries/EEPROM/src"
+    "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/libraries/EEPROM/src",
+    "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/libraries/Wire/src",
+    "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/libraries/SoftwareSerial/src",
+    "-I/Users/samuelcunha/Documents/Arduino/libraries/Keypad/src",
+    "-I/Users/samuelcunha/Documents/Arduino/libraries/LiquidCrystal_I2C",
+    "-I/Users/samuelcunha/Documents/Arduino/libraries/TM1638plus/src"
   ]
   Remove: ["-W*"]
 Diagnostics:

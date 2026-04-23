@@ -20,11 +20,17 @@
  * =================================================================================
  */
 
+#include <Arduino.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
 #include <SoftwareSerial.h>
 #include <TM1638plus.h>
+
+// --- Protótipos ---
+void updateTM1638();
+void updateLCD();
+void processIncomingMessage();
 
 // --- Configurações do LCD ---
 // Endereço 0x27, 16 colunas e 2 linhas
@@ -53,9 +59,9 @@ char keys[ROWS][COLS] = {
 };
 
 // Pinos conectados às linhas (R1, R2, R3, R4)
-byte rowPins[ROWS] = {9, 8, 7, 6};
+byte rowPins[ROWS] = {5, 4, 3, 2};
 // Pinos conectados às colunas (C1, C2, C3, C4)
-byte colPins[COLS] = {5, 4, 3, 2};
+byte colPins[COLS] = {9, 8, 7, 6};
 
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
@@ -70,21 +76,21 @@ void setup() {
   // Serial para comunicação com a placa principal
   mainSerial.begin(9600);
   
-  // Inicialização do LCD
-  lcd.init();
-  lcd.backlight();
+  // Inicialização do LCD (Comentado para teste de teclado)
+  // lcd.init();
+  // lcd.backlight();
   
-  // Inicialização do TM1638
-  tm.displayBegin();
-  tm.reset();
+  // Inicialização do TM1638 (Comentado para teste de teclado)
+  // tm.displayBegin();
+  // tm.reset();
   
   // Interface Inicial
-  lcd.setCursor(0, 0);
-  lcd.print("Cmd:");
-  lcd.setCursor(0, 1);
-  lcd.print("Pronto.");
+  // lcd.setCursor(0, 0);
+  // lcd.print("Cmd:");
+  // lcd.setCursor(0, 1);
+  // lcd.print("Pronto.");
   
-  updateTM1638(); // Exibe vazio
+  // updateTM1638(); // Exibe vazio
   
   Serial.println("Commander Iniciado.");
 }
@@ -95,68 +101,28 @@ void processIncomingMessage() {
     msg.trim(); // Remove espaços e quebras de linha (\r\n)
     
     if (msg.length() > 0) {
-      Serial.println("Recebido: " + msg); // Debug
+      Serial.print("Recebido: ");
+      Serial.println(msg); // Debug cru
       
-      lcd.setCursor(0, 1);
-      lcd.print("                "); // Limpa a linha 2 (16 espaços)
-      lcd.setCursor(0, 1);
-      
-      // Tradução dos códigos H8P para o usuário
-      if (msg == "A0") {
-        lcd.print("Sis Inicializado");
-      } 
-      else if (msg == "B0") {
-        lcd.print("Iniciando Fila");
-      } 
-      else if (msg == "B1") {
-        lcd.print("Motor Parado");
-      } 
-      else if (msg.startsWith("B2")) {
-        lcd.print("Pausa Global");
-      } 
-      else if (msg == "B4") {
-        lcd.print("Repeat ON");
-      } 
-      else if (msg == "B5") {
-        lcd.print("Fila Executada");
-      } 
-      else if (msg == "B6") {
-        lcd.print("Repeat OFF");
-      } 
-      else if (msg.startsWith("B7")) {
-        lcd.print("Motor Habilitado");
-      }
-      else if (msg.startsWith("B8")) {
-        lcd.print("Motor Desabiltd.");
-      }
-      else if (msg.startsWith("B9") || msg.startsWith("BA")) {
-        lcd.print("Preset EEPROM");
-      }
-      else if (msg == "E0") {
-        lcd.print("Err: Em Execucao");
-      } 
-      else if (msg == "E1") {
-        lcd.print("Err: Fila Vazia");
-      } 
-      else if (msg == "E2") {
-        lcd.print("Err: Fila Cheia");
-      } 
-      else if (msg == "E3") {
-        lcd.print("Erro de Sintaxe");
-      } 
-      else if (msg == "E4") {
-        lcd.print("Preset Invalido");
-      } 
-      else if (msg.startsWith("C0")) {
-        lcd.print("Salvo: Slot " + msg.substring(3, 4)); // Mostra o ID do Slot
-      } 
-      else if (msg.startsWith("BB") || msg.startsWith("BC")) {
-        lcd.print("FastAct. Exec");
-      } 
-      else {
-        // Exibe o código puro caso não esteja mapeado
-        lcd.print(msg.substring(0, 16)); 
-      }
+      // Tradução dos códigos H8P para o terminal (LCD desativado)
+      if (msg == "A0") Serial.println("-> Sis Inicializado");
+      else if (msg == "B0") Serial.println("-> Iniciando Fila");
+      else if (msg == "B1") Serial.println("-> Motor Parado");
+      else if (msg.startsWith("B2")) Serial.println("-> Pausa Global");
+      else if (msg == "B4") Serial.println("-> Repeat ON");
+      else if (msg == "B5") Serial.println("-> Fila Executada");
+      else if (msg == "B6") Serial.println("-> Repeat OFF");
+      else if (msg.startsWith("B7")) Serial.println("-> Motor Habilitado");
+      else if (msg.startsWith("B8")) Serial.println("-> Motor Desabiltd.");
+      else if (msg.startsWith("B9") || msg.startsWith("BA")) Serial.println("-> Preset EEPROM");
+      else if (msg == "E0") Serial.println("-> Err: Em Execucao");
+      else if (msg == "E1") Serial.println("-> Err: Fila Vazia");
+      else if (msg == "E2") Serial.println("-> Err: Fila Cheia");
+      else if (msg == "E3") Serial.println("-> Erro de Sintaxe");
+      else if (msg == "E4") Serial.println("-> Preset Invalido");
+      else if (msg.startsWith("C0")) Serial.println("-> Salvo: Slot " + msg.substring(3, 4));
+      else if (msg.startsWith("BB") || msg.startsWith("BC")) Serial.println("-> FastAct. Exec");
+      else Serial.println("-> " + msg);
     }
   }
 }
@@ -202,6 +168,8 @@ void loop() {
   char key = keypad.getKey();
   
   if (key) {
+    Serial.print("Tecla Pressionada: ");
+    Serial.println(key);
     // Tratamento especial: Enter é a combinação '*' seguido de '#'
     // Se o buffer terminar com ':' (que significa que o último botão pressionado foi '*')
     // e a tecla atual for '#', nós enviamos o comando.
@@ -214,11 +182,11 @@ void loop() {
         mainSerial.println(inputBuffer);
         Serial.println("Enviado: " + inputBuffer); // Debug
         
-        // Feedback Visual
-        lcd.setCursor(0, 1);
-        lcd.print("                ");
-        lcd.setCursor(0, 1);
-        lcd.print("Enviado.");
+        // Feedback Visual (Comentado)
+        // lcd.setCursor(0, 1);
+        // lcd.print("                ");
+        // lcd.setCursor(0, 1);
+        // lcd.print("Enviado.");
         
         // Limpa o buffer após o envio
         inputBuffer = "";
@@ -252,7 +220,7 @@ void loop() {
       }
     }
     
-    updateLCD();
-    updateTM1638();
+    // updateLCD();
+    // updateTM1638();
   }
 }
