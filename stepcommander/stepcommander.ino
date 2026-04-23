@@ -15,8 +15,10 @@
  * - '*' -> ':'
  * - '#' -> ','
  * - '* + #' -> 'Enter' (Enviar Comando)
- * - 'C' -> Apagar Tudo (Clear)
- * - 'D' -> Apagar Último (Backspace)
+ * - '* + C' -> Apagar Tudo (Clear)
+ * - '* + D' -> Apagar Último (Backspace)
+ * - '* + A' -> Inserir '-' (Menos)
+ * - '* + B' -> (Livre)
  * =================================================================================
  */
 
@@ -171,12 +173,12 @@ void loop() {
   if (key) {
     Serial.print("Tecla Pressionada: ");
     Serial.println(key);
-    // Tratamento especial: Enter é a combinação '*' seguido de '#'
-    // Se o buffer terminar com ':' (que significa que o último botão pressionado foi '*')
-    // e a tecla atual for '#', nós enviamos o comando.
-    if (key == '#') {
-      if (inputBuffer.endsWith(":")) {
-        // Removemos o ':' do buffer, pois ele era apenas o '*'
+    // Tratamento especial com combinações usando '*'
+    // O '*' adiciona um ':' no buffer. 
+    // Se o buffer termina com ':', verificamos as combinações.
+    if (inputBuffer.endsWith(":")) {
+      if (key == '#') {
+        // * + # -> Enter (Enviar Comando)
         inputBuffer.remove(inputBuffer.length() - 1);
         
         if (inputBuffer.length() == 0 && lastCommand.length() > 0) {
@@ -189,43 +191,56 @@ void loop() {
           // Envia o comando para a placa principal
           mainSerial.println(inputBuffer);
           Serial.println("Enviado: " + inputBuffer); // Debug
-          
-          // Feedback Visual (Comentado)
-          // lcd.setCursor(0, 1);
-          // lcd.print("                ");
-          // lcd.setCursor(0, 1);
-          // lcd.print("Enviado.");
         }
-        
-        // Limpa o buffer após o envio
         inputBuffer = "";
-      } else {
+      } 
+      else if (key == 'C') {
+        // * + C -> Clear
+        inputBuffer = "";
+      } 
+      else if (key == 'D') {
+        // * + D -> Backspace
+        if (inputBuffer.length() >= 2) {
+          inputBuffer.remove(inputBuffer.length() - 2);
+        } else {
+          inputBuffer = "";
+        }
+      } 
+      else if (key == 'A') {
+        // * + A -> Sinal de menos '-'
+        inputBuffer.setCharAt(inputBuffer.length() - 1, '-');
+      } 
+      else if (key == '*') {
+        // Pressionamento repetido de '*'
+        if (inputBuffer.length() < MAX_INPUT_LEN) {
+          inputBuffer += ":";
+        }
+      } 
+      else {
+        // Tecla normal após um '*' sem ser combinação especial
+        if (inputBuffer.length() < MAX_INPUT_LEN) {
+          inputBuffer += key;
+        }
+      }
+    } else {
+      // Fluxo normal (sem prefixo '*')
+      if (key == '#') {
         // Pressionamento normal de '#' -> Vira vírgula ','
         if (inputBuffer.length() < MAX_INPUT_LEN) {
           inputBuffer += ",";
         }
-      }
-    } 
-    else if (key == '*') {
-      // Pressionamento normal de '*' -> Vira dois-pontos ':'
-      if (inputBuffer.length() < MAX_INPUT_LEN) {
-        inputBuffer += ":";
-      }
-    } 
-    else if (key == 'D') {
-      // D -> Backspace
-      if (inputBuffer.length() > 0) {
-        inputBuffer.remove(inputBuffer.length() - 1);
-      }
-    } 
-    else if (key == 'C') {
-      // C -> Clear
-      inputBuffer = "";
-    } 
-    else {
-      // Teclas numéricas normais (0-9, A, B)
-      if (inputBuffer.length() < MAX_INPUT_LEN) {
-        inputBuffer += key;
+      } 
+      else if (key == '*') {
+        // Pressionamento normal de '*' -> Vira dois-pontos ':'
+        if (inputBuffer.length() < MAX_INPUT_LEN) {
+          inputBuffer += ":";
+        }
+      } 
+      else {
+        // Teclas normais (0-9, A, B, C, D)
+        if (inputBuffer.length() < MAX_INPUT_LEN) {
+          inputBuffer += key;
+        }
       }
     }
     
