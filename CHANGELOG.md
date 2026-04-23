@@ -11,9 +11,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+- **Comando de Repetição (Commander)**: Pressionar `*` + `#` no teclado matricial com o buffer vazio reenvia automaticamente o último comando disparado para a placa principal.
 - Documentação revisada seguindo os novos templates 2025.
 - Comentários JSDoc abrangentes nas funções principais do frontend (`app.js` e `i18n.js`).
 - Refatoração da Referência de API em `INTEGRATION.md` para formato de endpoints técnicos.
+
+### Changed
+- **Debug Serial no Commander**: A rotina de processamento `processIncomingMessage()` foi reescrita para exibir traduções via terminal do PC (ex: `-> Sis Inicializado`), prevenindo travamentos completos do barramento I2C caso o display LCD físico seja desconectado para testes de bancada.
+
+### Fixed
+- **Inversão de Matriz (Keypad)**: Corrigida transposição matemática de hardware invertendo os pinos de linhas (`5, 4, 3, 2`) e colunas (`9, 8, 7, 6`) do StepCommander, alinhando a lógica da biblioteca `Keypad.h` com o chicote físico real do componente genérico.
 
 ### Fixed
 - Sincronização do limite máximo do *Jog Slider* no primeiro pareamento serial (M1/M2).

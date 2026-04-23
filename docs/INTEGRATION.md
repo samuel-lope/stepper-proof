@@ -6,9 +6,10 @@ Este documento detalha o protocolo de comunicação e a arquitetura de integraç
 
 ## 🏗️ Arquitetura de Comunicação
 
-O projeto usa a **Web Serial API** para estabelecer um túnel direto navegador–microcontrolador via USB.
+O projeto usa a **Web Serial API** para estabelecer um túnel direto navegador–microcontrolador via USB. Alternativamente, a comunicação pode ser originada localmente pelo módulo periférico **StepCommander**.
 
-- **Camada de Transporte**: Serial RS-232 over USB.
+- **Camada de Transporte (Web)**: Serial RS-232 over USB (Hardware Serial, RX/TX nos pinos 0 e 1 do Arduino).
+- **Camada de Transporte (StepCommander)**: Conexão via `SoftwareSerial` originada nos pinos 10 e 11 do Commander para o Hardware Serial do controlador principal.
 - **Configuração**: **9600 bps**, 8-N-1.
 - **Protocolo**: Texto em pares `Chave:Valor` hexadecimais, separados por vírgula, terminados por `\n`.
 
