@@ -4,6 +4,9 @@ CompileFlags:
     "-DARDUINO=10819", 
     "-DARDUINO_AVR_UNO", 
     "-D__AVR_ATmega328P__",
+    "-Wno-missing-include-dirs",
+    
+    # --- MacOS Paths ---
     "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/cores/arduino",
     "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/variants/standard",
     "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/avr/include",
@@ -12,8 +15,19 @@ CompileFlags:
     "-I/Users/samuelcunha/Library/Arduino15/packages/arduino/hardware/avr/1.8.7/libraries/SoftwareSerial/src",
     "-I/Users/samuelcunha/Documents/Arduino/libraries/Keypad/src",
     "-I/Users/samuelcunha/Documents/Arduino/libraries/LiquidCrystal_I2C",
-    "-I/Users/samuelcunha/Documents/Arduino/libraries/TM1638plus/src"
+    "-I/Users/samuelcunha/Documents/Arduino/libraries/TM1638plus/src",
+
+    # --- Windows Paths ---
+    "-IC:/Users/samue/AppData/Local/Arduino15/packages/arduino/hardware/avr/1.8.7/cores/arduino",
+    "-IC:/Users/samue/AppData/Local/Arduino15/packages/arduino/hardware/avr/1.8.7/variants/standard",
+    "-IC:/Users/samue/AppData/Local/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/avr/include",
+    "-IC:/Users/samue/AppData/Local/Arduino15/packages/arduino/hardware/avr/1.8.7/libraries/EEPROM/src",
+    "-IC:/Users/samue/AppData/Local/Arduino15/packages/arduino/hardware/avr/1.8.7/libraries/Wire/src",
+    "-IC:/Users/samue/AppData/Local/Arduino15/packages/arduino/hardware/avr/1.8.7/libraries/SoftwareSerial/src",
+    "-IC:/Users/samue/OneDrive/Documents/Arduino/libraries/Keypad/src",
+    "-IC:/Users/samue/OneDrive/Documents/Arduino/libraries/LiquidCrystal_I2C",
+    "-IC:/Users/samue/OneDrive/Documents/Arduino/libraries/TM1638plus/src"
   ]
   Remove: ["-W*"]
 Diagnostics:
-  Suppress: ["fe_expected_compiler_job", "unknown-attributes"]
+  Suppress: ["fe_expected_compiler_job", "unknown-attributes", "missing-search-dir"]
