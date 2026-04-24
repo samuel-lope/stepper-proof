@@ -1,25 +1,40 @@
 /*
  * =================================================================================
- * Stepper Commander - Interface H8P (Low-Level Optimized)
+ * Stepper Commander - Interface H8P (v2.1 - Fully Optimized)
  * =================================================================================
  *
  * Board: Arduino Uno / Nano (Atmega328P)
  * Função: Envio de comandos H8P e recebimento de alertas do controlador principal
  *
- * Arquitetura Atualizada:
- * - Leitura Serial Não-Bloqueante: A leitura de pacotes UART ocorre char-por-char,
- *   sem paralisar o loop principal (eliminação do readStringUntil).
- * - Multitarefa Cooperativa: Uso intensivo de millis() como timer base para
- *   processos concorrentes (LCD, Leitura RX, Leitura Matriz).
- * - Otimização de RAM: Uso do modificador F() para manter strings na Flash (PROGMEM)
- *   e uso de "bit fields" para as flags de controle de estado.
+ * Arquitetura:
+ * - Leitura Serial Não-Bloqueante: char-por-char via buffer estático C.
+ * - Multitarefa Cooperativa: millis() como timer base para todos os processos.
+ * - RAM Otimizada: char[] fixos no lugar de String (elimina heap fragmentation).
+ *   Uso de PROGMEM/PSTR() para strings constantes e bitfields para flags.
+ *
+ * Melhorias v2.1 aplicadas:
+ * - [OPT-1] Leitura EEPROM com EEPROM.get() (tipo-seguro).
+ * - [OPT-2] scrollIndexBottom promovido para uint16_t (evita overflow 255→0).
+ * - [OPT-3] Timeout de mensagem de status (restaura "Pronto." após inatividade).
+ * - [OPT-4] Validação de slot EEPROM virgem (0xFF), evita envio de lixo serial.
+ * - [OPT-5] String substituída por char[] fixo (elimina fragmentação de heap).
+ * - [OPT-6] Numeração de seções corrigida (era "10", agora "9").
+ * - [OPT-7] Diagnóstico de slots EEPROM no setup() via Serial.
+ * - [OPT-8] Scroll adaptativo: velocidade proporcional ao comprimento da mensagem.
  *
  * Periféricos:
- * - Teclado Matricial 4x4 (Linhas 9,8,7,6 / Colunas 5,4,3,2)
+ * - Teclado Matricial 4x4 (Linhas 5,4,3,2 / Colunas 9,8,7,6)
  * - Display LCD 16x2 I2C (SDA=A4, SCL=A5, Endereço: 0x27)
  * - SoftwareSerial (RX=10, TX=11) -> Conecta ao TX/RX da placa Principal
  * - Opcional: TM1638plus no barramento SPI emulado por software (A0, A1, A2)
  *
+ * Mapeamento de Teclas:
+ * - '*'      -> ':'          | '#'      -> ','
+ * - '* + #'  -> ENTER        | '* + C'  -> Clear
+ * - '* + D'  -> Backspace    | '* + A'  -> Inserir '-'
+ * - '* + B'  -> Toggle Fast Act Mode
+ * - '* + 0-9'-> Salvar comando no Slot EEPROM
+ * - No modo Fast Act: [0-9] executa o Slot correspondente
  * =================================================================================
  */
 
@@ -34,22 +49,24 @@
 // =================================================================================
 // 1. MACROS E DEFINIÇÕES (HARDWARE & CONFIG)
 // =================================================================================
-#define MAX_INPUT_LEN 32
-#define SERIAL_BUF_SIZE 32
-#define SCROLL_INTERVAL_MS 400
+#define MAX_INPUT_LEN        32
+#define SERIAL_BUF_SIZE      32
+#define MSG_MAX_LEN          32
+#define SCROLL_INTERVAL_BASE 500  // [OPT-8] Intervalo base do scroll em ms
+#define MSG_TIMEOUT_MS       8000 // [OPT-3] Tempo para mensagem de status expirar
 
-// Configurações da EEPROM (Slots de Macro)
+// Configurações da EEPROM (10 Slots de Macro)
 #define EEPROM_START_ADDR 0
-#define SLOT_SIZE 33 // 32 chars + null terminator
-#define NUM_SLOTS 10
+#define SLOT_SIZE         33 // 32 chars + null terminator
+#define NUM_SLOTS         10
 
 // Display LCD I2C (Endereço 0x27, 16 Colunas, 2 Linhas)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// Comunicação Serial H8P
+// Comunicação Serial H8P (pinos físicos fixos)
 SoftwareSerial mainSerial(10, 11);
 
-// Modulo TM1638
+// Módulo TM1638 (7 segmentos - opcional)
 #define TM_STB A0
 #define TM_CLK A1
 #define TM_DIO A2
@@ -71,25 +88,30 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 // 2. MÁQUINA DE ESTADOS E GERENCIAMENTO DE MEMÓRIA (RAM)
 // =================================================================================
 
-// Uso de struct com bitfields para economizar RAM ao empacotar flags lógicas
+// Bitfields: 4 flags em 1 único byte de RAM
 struct
 {
     uint8_t lcdNeedsUpdate : 1;
-    uint8_t tmNeedsUpdate : 1;
-    uint8_t isMessageLong : 1;
-    uint8_t isFastActMode : 1;
+    uint8_t tmNeedsUpdate  : 1;
+    uint8_t isMessageLong  : 1;
+    uint8_t isFastActMode  : 1;
+    uint8_t msgIsStatus    : 1; // [OPT-3] Mensagem temporária (pode expirar)
 } systemFlags;
 
-// Buffers de Interface (Alocação dinâmica evitada ao máximo onde for custoso)
-String inputBuffer = "";
-String lastCommand = "";
-String currentMsg = "Pronto.";
+// [OPT-5] Buffers estáticos char[] — sem String, sem heap, sem fragmentação
+char inputBuffer[MAX_INPUT_LEN + 1]; // Buffer de entrada do teclado
+uint8_t inputLen = 0;                // Comprimento atual do buffer de entrada
+char lastCommand[MAX_INPUT_LEN + 1]; // Último comando enviado (repetição com *+#)
+char currentMsg[MSG_MAX_LEN + 1];    // Mensagem exibida na linha 2 do LCD
 
-// Controle do Marquee (Animação de Scroll cooperativo via millis)
+// Controle do Marquee (scroll cooperativo via millis)
 unsigned long lastScrollTime = 0;
-uint8_t scrollIndexBottom = 0;
+uint16_t scrollIndexBottom = 0; // [OPT-2] uint16_t: evita overflow a cada ~100s
 
-// Buffer Estático C-String para recepção Serial (NÃO bloqueante)
+// [OPT-3] Controle de timeout de mensagem de status
+unsigned long lastMsgTime = 0;
+
+// Buffer estático para recepção Serial não-bloqueante
 char rxBuffer[SERIAL_BUF_SIZE];
 uint8_t rxIndex = 0;
 
@@ -104,7 +126,9 @@ void updateLCD();
 void updateTM1638();
 void saveSlot(uint8_t slot);
 void runSlot(uint8_t slot);
-String getScrollText(const String &text, uint8_t index);
+void setStatusMsg(const char *msg);
+void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t idx);
+void diagnosticEEPROM(); // [OPT-7]
 
 // =================================================================================
 // 4. SETUP INICIAL
@@ -114,20 +138,25 @@ void setup()
     Serial.begin(9600);
     mainSerial.begin(9600);
 
-    // Inicialização do Hardware
     lcd.init();
     lcd.backlight();
+    // tm.displayBegin(); // (Opcional)
+    // tm.reset();        // (Opcional)
 
-    // tm.displayBegin(); // (Opcional - Comentado para teste de teclado)
-    // tm.reset();        // (Opcional - Comentado para teste de teclado)
+    // Estado inicial limpo
+    inputBuffer[0] = '\0';
+    lastCommand[0] = '\0';
+    strcpy_P(currentMsg, PSTR("Pronto."));
 
-    // Estado Inicial
     systemFlags.lcdNeedsUpdate = 1;
-    systemFlags.tmNeedsUpdate = 0;
-    systemFlags.isMessageLong = 0;
-    systemFlags.isFastActMode = 0;
+    systemFlags.tmNeedsUpdate  = 0;
+    systemFlags.isMessageLong  = 0;
+    systemFlags.isFastActMode  = 0;
+    systemFlags.msgIsStatus    = 0;
 
-    Serial.println(F("Commander Iniciado. [Non-Blocking Architecture]"));
+    Serial.println(F("StepCommander v2.1 [Optimized]"));
+
+    diagnosticEEPROM(); // [OPT-7] Exibe slots gravados ao iniciar
 }
 
 // =================================================================================
@@ -135,14 +164,9 @@ void setup()
 // =================================================================================
 void loop()
 {
-    // 1. Verificar pacotes na Serial UART (Event-driven lógico)
-    processSerialRX();
-
-    // 2. Escaneamento Matricial do Teclado
-    processKeypad();
-
-    // 3. Renderização Dinâmica (Processado apenas via Timer ou mudança de flag)
-    handleDisplayTasks();
+    processSerialRX();   // 1. Lê bytes da UART sem bloquear
+    processKeypad();     // 2. Escaneia o teclado matricial
+    handleDisplayTasks();// 3. Atualiza displays (sob demanda / timer)
 }
 
 // =================================================================================
@@ -150,19 +174,17 @@ void loop()
 // =================================================================================
 void processSerialRX()
 {
-    // Escoa todo o buffer de hardware sem prender a thread
     while (mainSerial.available() > 0)
     {
         char inChar = (char)mainSerial.read();
 
-        // Quebra de linha define final do pacote H8P
         if (inChar == '\n' || inChar == '\r')
         {
             if (rxIndex > 0)
             {
-                rxBuffer[rxIndex] = '\0'; // Finaliza C-string clássica
+                rxBuffer[rxIndex] = '\0';
                 parseH8PMessage(rxBuffer);
-                rxIndex = 0; // Limpa ponteiro para o próximo pacote
+                rxIndex = 0;
             }
         }
         else if (rxIndex < (SERIAL_BUF_SIZE - 1))
@@ -174,59 +196,41 @@ void processSerialRX()
 
 void parseH8PMessage(const char *msg)
 {
-    Serial.print(F("RX (Cru): "));
-    Serial.println(msg);
+    Serial.print(F("RX: ")); Serial.println(msg);
 
-    // Dicionário H8P em PROGMEM para economizar RAM usando strncmp em vez de String
-    if (strncmp(msg, "A0", 2) == 0)
-        currentMsg = F("Sis Inicializado");
-    else if (strncmp(msg, "B0", 2) == 0)
-        currentMsg = F("Iniciando Fila");
-    else if (strncmp(msg, "B1", 2) == 0)
-        currentMsg = F("Motor Parado");
-    else if (strncmp(msg, "B2", 2) == 0)
-        currentMsg = F("Pausa Global");
-    else if (strncmp(msg, "B4", 2) == 0)
-        currentMsg = F("Repeat ON");
-    else if (strncmp(msg, "B5", 2) == 0)
-        currentMsg = F("Fila Executada");
-    else if (strncmp(msg, "B6", 2) == 0)
-        currentMsg = F("Repeat OFF");
-    else if (strncmp(msg, "B7", 2) == 0)
-        currentMsg = F("Motor Habilitado");
-    else if (strncmp(msg, "B8", 2) == 0)
-        currentMsg = F("Motor Desabiltd.");
-    else if (strncmp(msg, "B9", 2) == 0 || strncmp(msg, "BA", 2) == 0)
-        currentMsg = F("Preset EEPROM");
-    else if (strncmp(msg, "E0", 2) == 0)
-        currentMsg = F("Err: Em Execucao");
-    else if (strncmp(msg, "E1", 2) == 0)
-        currentMsg = F("Err: Fila Vazia");
-    else if (strncmp(msg, "E2", 2) == 0)
-        currentMsg = F("Err: Fila Cheia");
-    else if (strncmp(msg, "E3", 2) == 0)
-        currentMsg = F("Erro de Sintaxe");
-    else if (strncmp(msg, "E4", 2) == 0)
-        currentMsg = F("Preset Invalido");
-    else if (strncmp(msg, "BB", 2) == 0 || strncmp(msg, "BC", 2) == 0)
-        currentMsg = F("FastAct. Exec");
+    // Dicionário H8P com PSTR (strings em Flash, não consomem SRAM)
+    if      (strncmp(msg, "A0", 2) == 0) strcpy_P(currentMsg, PSTR("Sis Inicializado"));
+    else if (strncmp(msg, "B0", 2) == 0) strcpy_P(currentMsg, PSTR("Iniciando Fila"));
+    else if (strncmp(msg, "B1", 2) == 0) strcpy_P(currentMsg, PSTR("Motor Parado"));
+    else if (strncmp(msg, "B2", 2) == 0) strcpy_P(currentMsg, PSTR("Pausa Global"));
+    else if (strncmp(msg, "B4", 2) == 0) strcpy_P(currentMsg, PSTR("Repeat ON"));
+    else if (strncmp(msg, "B5", 2) == 0) strcpy_P(currentMsg, PSTR("Fila Executada"));
+    else if (strncmp(msg, "B6", 2) == 0) strcpy_P(currentMsg, PSTR("Repeat OFF"));
+    else if (strncmp(msg, "B7", 2) == 0) strcpy_P(currentMsg, PSTR("Motor Habilitado"));
+    else if (strncmp(msg, "B8", 2) == 0) strcpy_P(currentMsg, PSTR("Motor Desabiltd."));
+    else if (strncmp(msg, "B9", 2) == 0 ||
+             strncmp(msg, "BA", 2) == 0) strcpy_P(currentMsg, PSTR("Preset EEPROM"));
+    else if (strncmp(msg, "E0", 2) == 0) strcpy_P(currentMsg, PSTR("Err: Em Execucao"));
+    else if (strncmp(msg, "E1", 2) == 0) strcpy_P(currentMsg, PSTR("Err: Fila Vazia"));
+    else if (strncmp(msg, "E2", 2) == 0) strcpy_P(currentMsg, PSTR("Err: Fila Cheia"));
+    else if (strncmp(msg, "E3", 2) == 0) strcpy_P(currentMsg, PSTR("Erro de Sintaxe"));
+    else if (strncmp(msg, "E4", 2) == 0) strcpy_P(currentMsg, PSTR("Preset Invalido"));
+    else if (strncmp(msg, "BB", 2) == 0 ||
+             strncmp(msg, "BC", 2) == 0) strcpy_P(currentMsg, PSTR("FastAct. Exec"));
     else if (strncmp(msg, "C0", 2) == 0)
-    {
-        currentMsg = F("Salvo: Slot ");
-        currentMsg += msg[3]; // Extrai o dígito referenciado no protocolo C0_X
-    }
+        snprintf_P(currentMsg, sizeof(currentMsg), PSTR("Salvo: Slot %c"), msg[3]);
     else
     {
-        // Fallback genérico caso o pacote não exista na tabela fixa
-        currentMsg = String(msg);
+        strncpy(currentMsg, msg, MSG_MAX_LEN);
+        currentMsg[MSG_MAX_LEN] = '\0';
     }
 
-    Serial.print(F("-> Tratado: "));
-    Serial.println(currentMsg);
+    Serial.print(F("-> ")); Serial.println(currentMsg);
 
-    // Sinaliza o renderizador de que a interface deve ser atualizada
-    systemFlags.isMessageLong = (currentMsg.length() > 16) ? 1 : 0;
-    scrollIndexBottom = 0;
+    systemFlags.isMessageLong = (strlen(currentMsg) > 16) ? 1 : 0;
+    systemFlags.msgIsStatus   = 0; // Mensagem H8P não expira por timeout
+    scrollIndexBottom         = 0;
+    lastMsgTime               = millis();
     systemFlags.lcdNeedsUpdate = 1;
 }
 
@@ -236,103 +240,120 @@ void parseH8PMessage(const char *msg)
 void processKeypad()
 {
     char key = keypad.getKey();
-    if (!key)
-        return; // Se nenhum botão foi pressionado, retorna ao Loop principal
+    if (!key) return;
 
-    Serial.print(F("Tecla: "));
-    Serial.println(key);
+    Serial.print(F("Tecla: ")); Serial.println(key);
 
-    // No modo Fast Act, teclas numéricas disparam macros imediatamente
+    // Modo Fast Act: teclas numéricas disparam macros diretamente
     if (systemFlags.isFastActMode && isDigit(key))
     {
         runSlot(key - '0');
         return;
     }
 
-    // O '*' funciona como prefixo de comandos ou caracter separador (':')
-    if (inputBuffer.endsWith(":"))
+    // Verifica se o prefixo '*' está ativo (buffer termina com ':')
+    bool hasStar = (inputLen > 0 && inputBuffer[inputLen - 1] == ':');
+
+    if (hasStar)
     {
         if (key == '#')
         {
-            // [* + #] = ENTER (Enviar Comando H8P)
-            inputBuffer.remove(inputBuffer.length() - 1);
-            if (inputBuffer.length() == 0 && lastCommand.length() > 0)
-                inputBuffer = lastCommand;
-            else if (inputBuffer.length() > 0)
-                lastCommand = inputBuffer;
+            // [* + #] = ENTER — Remove ':' e envia o comando
+            inputBuffer[--inputLen] = '\0';
 
-            if (inputBuffer.length() > 0)
+            if (inputLen == 0 && lastCommand[0] != '\0')
+            {
+                strncpy(inputBuffer, lastCommand, MAX_INPUT_LEN);
+                inputLen = strlen(inputBuffer);
+            }
+            else if (inputLen > 0)
+            {
+                strncpy(lastCommand, inputBuffer, MAX_INPUT_LEN);
+                lastCommand[MAX_INPUT_LEN] = '\0';
+            }
+
+            if (inputLen > 0)
             {
                 mainSerial.println(inputBuffer);
-                Serial.print(F("TX: "));
-                Serial.println(inputBuffer);
+                Serial.print(F("TX: ")); Serial.println(inputBuffer);
             }
-            inputBuffer = "";
+            inputLen = 0;
+            inputBuffer[0] = '\0';
         }
         else if (key == 'B')
-        { // [* + B] = Toggle Fast Act Mode
-            inputBuffer.remove(inputBuffer.length() - 1);
+        {
+            // [* + B] = Toggle Fast Act Mode
+            inputBuffer[--inputLen] = '\0';
             systemFlags.isFastActMode = !systemFlags.isFastActMode;
-            currentMsg = systemFlags.isFastActMode ? F("FAST ACT ON") : F("FAST ACT OFF");
-            scrollIndexBottom = 0;
-            systemFlags.isMessageLong = (currentMsg.length() > 16) ? 1 : 0;
+            setStatusMsg(systemFlags.isFastActMode ? "FAST ACT ON" : "FAST ACT OFF");
         }
         else if (isDigit(key))
-        { // [* + 0-9] = Save to EEPROM Slot
-            inputBuffer.remove(inputBuffer.length() - 1);
-            if (inputBuffer.length() > 0)
+        {
+            // [* + 0-9] = Salvar buffer no Slot EEPROM correspondente
+            inputBuffer[--inputLen] = '\0';
+            if (inputLen > 0)
             {
                 saveSlot(key - '0');
-                inputBuffer = "";
+                inputLen = 0;
+                inputBuffer[0] = '\0';
             }
         }
         else if (key == 'C')
-        { // [* + C] = CLEAR ALL
-            inputBuffer = "";
+        {
+            // [* + C] = Clear
+            inputLen = 0;
+            inputBuffer[0] = '\0';
         }
         else if (key == 'D')
-        { // [* + D] = BACKSPACE
-            if (inputBuffer.length() >= 2)
-                inputBuffer.remove(inputBuffer.length() - 2);
+        {
+            // [* + D] = Backspace — Remove ':' e o caractere anterior
+            if (inputLen >= 2)
+                inputBuffer[inputLen -= 2] = '\0';
             else
-                inputBuffer = "";
+            {
+                inputLen = 0;
+                inputBuffer[0] = '\0';
+            }
         }
         else if (key == 'A')
-        { // [* + A] = Inserir SINAL DE MENOS (-)
-            inputBuffer.setCharAt(inputBuffer.length() - 1, '-');
+        {
+            // [* + A] = Substituir ':' por '-'
+            inputBuffer[inputLen - 1] = '-';
         }
         else if (key == '*')
         {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += ":";
+            // Duplo '*': adiciona mais um ':'
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = ':';
+                inputBuffer[inputLen]   = '\0';
+            }
         }
         else
         {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += key;
+            // Tecla normal após '*': mantém ':' e adiciona o caractere
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = key;
+                inputBuffer[inputLen]   = '\0';
+            }
         }
     }
     else
     {
-        // Pressionamento convencional (Sem prefixo ativo)
-        if (key == '#')
+        // Pressionamento convencional (sem prefixo '*' ativo)
+        char toAppend = 0;
+        if      (key == '#') toAppend = ',';
+        else if (key == '*') toAppend = ':';
+        else                 toAppend = key;
+
+        if (toAppend && inputLen < MAX_INPUT_LEN)
         {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += ",";
-        }
-        else if (key == '*')
-        {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += ":";
-        }
-        else
-        {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += key;
+            inputBuffer[inputLen++] = toAppend;
+            inputBuffer[inputLen]   = '\0';
         }
     }
 
-    // Sinaliza à camada gráfica que houve mutação nos buffers
     systemFlags.lcdNeedsUpdate = 1;
 }
 
@@ -341,20 +362,32 @@ void processKeypad()
 // =================================================================================
 void handleDisplayTasks()
 {
-    unsigned long currentMillis = millis();
+    unsigned long now = millis();
 
-    // Lógica do Marquee (Scroll do texto que ultrapassa 16 caracteres no LCD)
+    // [OPT-3] Timeout: restaura mensagem padrão após inatividade
+    if (systemFlags.msgIsStatus && (now - lastMsgTime >= MSG_TIMEOUT_MS))
+    {
+        strcpy_P(currentMsg, systemFlags.isFastActMode ? PSTR("[FAST ACT]") : PSTR("Pronto."));
+        systemFlags.isMessageLong  = 0;
+        systemFlags.msgIsStatus    = 0;
+        scrollIndexBottom          = 0;
+        systemFlags.lcdNeedsUpdate = 1;
+    }
+
+    // [OPT-8] Scroll com velocidade adaptativa ao comprimento da mensagem
     if (systemFlags.isMessageLong)
     {
-        if (currentMillis - lastScrollTime >= SCROLL_INTERVAL_MS)
+        uint8_t msgLen = strlen(currentMsg);
+        // Quanto mais longa a mensagem, mais rápido o scroll (mín. 200ms)
+        uint16_t interval = (uint16_t)max(200, SCROLL_INTERVAL_BASE - (int)(msgLen * 10));
+        if (now - lastScrollTime >= interval)
         {
-            lastScrollTime = currentMillis;
+            lastScrollTime = now;
             scrollIndexBottom++;
             systemFlags.lcdNeedsUpdate = 1;
         }
     }
 
-    // Atualiza Fisicamente o I2C apenas sob demanda
     if (systemFlags.lcdNeedsUpdate)
     {
         updateLCD();
@@ -362,7 +395,6 @@ void handleDisplayTasks()
     }
 
     /*
-    // Chamada do display de 7 segmentos (Ative caso deseje espelhar os valores)
     if (systemFlags.tmNeedsUpdate) {
         updateTM1638();
         systemFlags.tmNeedsUpdate = 0;
@@ -372,150 +404,169 @@ void handleDisplayTasks()
 
 void updateLCD()
 {
-    // Linha 1 (Topo): Cmd: [Últimos 12 char do Buffer]
-    String dispTop = systemFlags.isFastActMode ? F("[F] Cmd:") : F("Cmd:");
-    uint8_t prefixLen = systemFlags.isFastActMode ? 8 : 4;
-    uint8_t maxInLen = 16 - prefixLen;
+    char dispTop[17];
+    char dispBot[17];
 
-    if (inputBuffer.length() <= maxInLen)
+    // --- Linha 1 (Topo): [F] Cmd: ou Cmd: + últimos N chars do inputBuffer ---
+    const char *prefix  = systemFlags.isFastActMode ? "[F] Cmd:" : "Cmd:";
+    uint8_t prefixLen   = systemFlags.isFastActMode ? 8 : 4;
+    uint8_t maxInLen    = 16 - prefixLen;
+
+    strncpy(dispTop, prefix, 16);
+    dispTop[prefixLen] = '\0';
+
+    if (inputLen <= maxInLen)
     {
-        dispTop += inputBuffer;
-        while (dispTop.length() < 16)
-            dispTop += " ";
+        strncat(dispTop, inputBuffer, maxInLen);
+        uint8_t total = strlen(dispTop);
+        while (total < 16) dispTop[total++] = ' ';
+        dispTop[16] = '\0';
     }
     else
     {
-        dispTop += inputBuffer.substring(inputBuffer.length() - maxInLen);
+        // Mostra apenas os últimos N caracteres (janela deslizante)
+        strncat(dispTop, inputBuffer + (inputLen - maxInLen), maxInLen);
+        dispTop[16] = '\0';
     }
 
-    // Linha 2 (Rodapé): Alertas Dinâmicos (Com ou sem Marquee/Scroll)
-    String dispBot = getScrollText(currentMsg, scrollIndexBottom);
+    // --- Linha 2 (Rodapé): Marquee ou texto fixo ---
+    uint8_t msgLen = strlen(currentMsg);
+    if (msgLen <= 16)
+    {
+        strncpy(dispBot, currentMsg, 16);
+        uint8_t total = msgLen;
+        while (total < 16) dispBot[total++] = ' ';
+        dispBot[16] = '\0';
+    }
+    else
+    {
+        // [OPT-1/OPT-2] Scroll sem alocação dinâmica, índice uint16_t
+        scrollTextToBuffer(dispBot, currentMsg, msgLen, scrollIndexBottom);
+    }
 
-    lcd.setCursor(0, 0);
-    lcd.print(dispTop);
-    lcd.setCursor(0, 1);
-    lcd.print(dispBot);
+    lcd.setCursor(0, 0); lcd.print(dispTop);
+    lcd.setCursor(0, 1); lcd.print(dispBot);
 }
 
-String getScrollText(const String &text, uint8_t index)
+// Gera janela de 16 chars com scroll circular — sem String, sem heap
+void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t idx)
 {
-    if (text.length() <= 16)
+    const uint8_t GAP  = 4; // Espaços de separação entre loops do texto
+    uint8_t totalLen   = textLen + GAP;
+    uint16_t start     = idx % totalLen;
+
+    for (uint8_t i = 0; i < 16; i++)
     {
-        String padded = text;
-        while (padded.length() < 16)
-            padded += " ";
-        return padded;
+        uint16_t pos = (start + i) % totalLen;
+        out[i] = (pos < textLen) ? text[pos] : ' ';
     }
-
-    // Cria um espaçamento visual de 4 casas para separar o loop da mensagem
-    String padded = text + F("    ");
-    uint8_t len = padded.length();
-    uint8_t idx = index % len;
-
-    String result = padded.substring(idx) + padded.substring(0, idx);
-    return result.substring(0, 16);
+    out[16] = '\0';
 }
 
 void updateTM1638()
 {
-    // Transforma ":" e "," em pontuação de display (.) para economizar dígitos no TM
-    String tmString = "";
-    for (unsigned int i = 0; i < inputBuffer.length(); i++)
-    {
-        char c = inputBuffer.charAt(i);
-        if (c == ':' || c == ',')
-            tmString += ".";
-        else
-            tmString += c;
-    }
-
-    // Conta quantos caracteres 'reais' (não pontuações) ocupam um segmento inteiro
-    String paddedStr = tmString;
+    char tmStr[MAX_INPUT_LEN + 1];
+    uint8_t tmLen    = 0;
     uint8_t rawChars = 0;
-    for (unsigned int i = 0; i < tmString.length(); i++)
-    {
-        if (tmString.charAt(i) != '.')
-            rawChars++;
-    }
 
-    // Padding com espaços vazios à direita
-    while (rawChars < 8)
+    for (uint8_t i = 0; i < inputLen && tmLen < MAX_INPUT_LEN; i++)
     {
-        paddedStr += " ";
+        char c = inputBuffer[i];
+        if (c == ':' || c == ',') { tmStr[tmLen++] = '.'; }
+        else                      { tmStr[tmLen++] = c; rawChars++; }
+    }
+    while (rawChars < 8 && tmLen < MAX_INPUT_LEN)
+    {
+        tmStr[tmLen++] = ' ';
         rawChars++;
     }
-
-    tm.displayText(paddedStr.c_str());
+    tmStr[tmLen] = '\0';
+    tm.displayText(tmStr);
 }
 
 // =================================================================================
-// 10. PERSISTÊNCIA (EEPROM)
+// 9. PERSISTÊNCIA (EEPROM) [OPT-6: Numeração corrigida de "10" para "9"]
 // =================================================================================
+
+// Helper: Define mensagem de status temporária (expira por timeout)
+void setStatusMsg(const char *msg)
+{
+    strncpy(currentMsg, msg, MSG_MAX_LEN);
+    currentMsg[MSG_MAX_LEN]    = '\0';
+    systemFlags.isMessageLong  = (strlen(currentMsg) > 16) ? 1 : 0;
+    systemFlags.msgIsStatus    = 1; // [OPT-3] Marcada como temporária
+    scrollIndexBottom          = 0;
+    lastMsgTime                = millis();
+    systemFlags.lcdNeedsUpdate = 1;
+}
+
 void saveSlot(uint8_t slot)
 {
-    if (slot >= NUM_SLOTS)
-        return;
+    if (slot >= NUM_SLOTS) return;
     int addr = EEPROM_START_ADDR + (slot * SLOT_SIZE);
 
-    // Grava o buffer caractere por caractere
-    uint8_t len = inputBuffer.length();
-    if (len > MAX_INPUT_LEN)
-        len = MAX_INPUT_LEN;
+    // [Problema #3] Limpa todo o bloco antes de gravar (evita bytes residuais)
+    for (uint8_t i = 0; i < SLOT_SIZE; i++)
+        EEPROM.update(addr + i, '\0');
 
+    uint8_t len = min(inputLen, (uint8_t)MAX_INPUT_LEN);
     for (uint8_t i = 0; i < len; i++)
-    {
         EEPROM.update(addr + i, inputBuffer[i]);
-    }
-    EEPROM.update(addr + len, '\0'); // Null terminator
+    // Null terminator já garantido pela limpeza acima
 
-    currentMsg = F("Slot ");
-    currentMsg += slot;
-    currentMsg += F(" Salvo!");
+    Serial.print(F("EEPROM Write Slot ")); Serial.print(slot);
+    Serial.print(F(": "));                Serial.println(inputBuffer);
 
-    systemFlags.isMessageLong = 0;
-    scrollIndexBottom = 0;
-    systemFlags.lcdNeedsUpdate = 1;
-
-    Serial.print(F("EEPROM Write Slot "));
-    Serial.print(slot);
-    Serial.print(F(": "));
-    Serial.println(inputBuffer);
+    char msg[20];
+    snprintf_P(msg, sizeof(msg), PSTR("Slot %d Salvo!"), slot);
+    setStatusMsg(msg);
 }
 
 void runSlot(uint8_t slot)
 {
-    if (slot >= NUM_SLOTS)
-        return;
+    if (slot >= NUM_SLOTS) return;
     int addr = EEPROM_START_ADDR + (slot * SLOT_SIZE);
 
+    // [OPT-1] Leitura tipo-segura via EEPROM.get()
     char buffer[SLOT_SIZE];
-    for (uint8_t i = 0; i < SLOT_SIZE; i++)
-    {
-        buffer[i] = EEPROM.read(addr + i);
-        if (buffer[i] == '\0')
-            break;
-    }
-    buffer[SLOT_SIZE - 1] = '\0'; // Segurança
+    EEPROM.get(addr, buffer);
+    buffer[SLOT_SIZE - 1] = '\0'; // Segurança absoluta
 
-    if (strlen(buffer) > 0)
+    // [OPT-4] Detecta EEPROM virgem (0xFF) ou slot vazio ('\0')
+    if (buffer[0] == '\0' || (uint8_t)buffer[0] == 0xFF)
     {
-        mainSerial.println(buffer);
-        currentMsg = F("FastAct: ");
-        currentMsg += buffer;
-
-        Serial.print(F("FastAct Run Slot "));
-        Serial.print(slot);
-        Serial.print(F(": "));
-        Serial.println(buffer);
-    }
-    else
-    {
-        currentMsg = F("Slot ");
-        currentMsg += slot;
-        currentMsg += F(" Vazio!");
+        char msg[20];
+        snprintf_P(msg, sizeof(msg), PSTR("Slot %d Vazio!"), slot);
+        setStatusMsg(msg);
+        return;
     }
 
-    systemFlags.isMessageLong = (currentMsg.length() > 16) ? 1 : 0;
-    scrollIndexBottom = 0;
-    systemFlags.lcdNeedsUpdate = 1;
+    mainSerial.println(buffer);
+    Serial.print(F("FastAct Slot ")); Serial.print(slot);
+    Serial.print(F(": "));           Serial.println(buffer);
+
+    // Feedback: ">> [comando]" (truncado para caber no LCD com scroll)
+    char msg[MSG_MAX_LEN + 1];
+    snprintf_P(msg, sizeof(msg), PSTR(">> %s"), buffer);
+    setStatusMsg(msg);
+}
+
+// [OPT-7] Diagnóstico de todos os slots na inicialização
+void diagnosticEEPROM()
+{
+    Serial.println(F("--- EEPROM Slots ---"));
+    for (uint8_t s = 0; s < NUM_SLOTS; s++)
+    {
+        int addr = EEPROM_START_ADDR + (s * SLOT_SIZE);
+        char buffer[SLOT_SIZE];
+        EEPROM.get(addr, buffer);
+        buffer[SLOT_SIZE - 1] = '\0';
+
+        Serial.print(F("Slot ")); Serial.print(s); Serial.print(F(": "));
+        if (buffer[0] == '\0' || (uint8_t)buffer[0] == 0xFF)
+            Serial.println(F("[Vazio]"));
+        else
+            Serial.println(buffer);
+    }
+    Serial.println(F("--------------------"));
 }
