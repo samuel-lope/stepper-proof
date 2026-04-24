@@ -49,16 +49,16 @@
 // =================================================================================
 // 1. MACROS E DEFINIÇÕES (HARDWARE & CONFIG)
 // =================================================================================
-#define MAX_INPUT_LEN        32
-#define SERIAL_BUF_SIZE      32
-#define MSG_MAX_LEN          32
-#define SCROLL_INTERVAL_BASE 500  // [OPT-8] Intervalo base do scroll em ms
-#define MSG_TIMEOUT_MS       8000 // [OPT-3] Tempo para mensagem de status expirar
+#define MAX_INPUT_LEN 32
+#define SERIAL_BUF_SIZE 32
+#define MSG_MAX_LEN 32
+#define SCROLL_INTERVAL_BASE 500 // [OPT-8] Intervalo base do scroll em ms
+#define MSG_TIMEOUT_MS 8000      // [OPT-3] Tempo para mensagem de status expirar
 
 // Configurações da EEPROM (10 Slots de Macro)
 #define EEPROM_START_ADDR 0
-#define SLOT_SIZE         33 // 32 chars + null terminator
-#define NUM_SLOTS         10
+#define SLOT_SIZE 33 // 32 chars + null terminator
+#define NUM_SLOTS 10
 
 // Display LCD I2C (Endereço 0x27, 16 Colunas, 2 Linhas)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -92,10 +92,10 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 struct
 {
     uint8_t lcdNeedsUpdate : 1;
-    uint8_t tmNeedsUpdate  : 1;
-    uint8_t isMessageLong  : 1;
-    uint8_t isFastActMode  : 1;
-    uint8_t msgIsStatus    : 1; // [OPT-3] Mensagem temporária (pode expirar)
+    uint8_t tmNeedsUpdate : 1;
+    uint8_t isMessageLong : 1;
+    uint8_t isFastActMode : 1;
+    uint8_t msgIsStatus : 1; // [OPT-3] Mensagem temporária (pode expirar)
 } systemFlags;
 
 // [OPT-5] Buffers estáticos char[] — sem String, sem heap, sem fragmentação
@@ -149,10 +149,10 @@ void setup()
     strcpy_P(currentMsg, PSTR("Pronto."));
 
     systemFlags.lcdNeedsUpdate = 1;
-    systemFlags.tmNeedsUpdate  = 0;
-    systemFlags.isMessageLong  = 0;
-    systemFlags.isFastActMode  = 0;
-    systemFlags.msgIsStatus    = 0;
+    systemFlags.tmNeedsUpdate = 0;
+    systemFlags.isMessageLong = 0;
+    systemFlags.isFastActMode = 0;
+    systemFlags.msgIsStatus = 0;
 
     Serial.println(F("StepCommander v2.1 [Optimized]"));
 
@@ -164,9 +164,9 @@ void setup()
 // =================================================================================
 void loop()
 {
-    processSerialRX();   // 1. Lê bytes da UART sem bloquear
-    processKeypad();     // 2. Escaneia o teclado matricial
-    handleDisplayTasks();// 3. Atualiza displays (sob demanda / timer)
+    processSerialRX();    // 1. Lê bytes da UART sem bloquear
+    processKeypad();      // 2. Escaneia o teclado matricial
+    handleDisplayTasks(); // 3. Atualiza displays (sob demanda / timer)
 }
 
 // =================================================================================
@@ -196,27 +196,44 @@ void processSerialRX()
 
 void parseH8PMessage(const char *msg)
 {
-    Serial.print(F("RX: ")); Serial.println(msg);
+    Serial.print(F("RX: "));
+    Serial.println(msg);
 
     // Dicionário H8P com PSTR (strings em Flash, não consomem SRAM)
-    if      (strncmp(msg, "A0", 2) == 0) strcpy_P(currentMsg, PSTR("Sis Inicializado"));
-    else if (strncmp(msg, "B0", 2) == 0) strcpy_P(currentMsg, PSTR("Iniciando Fila"));
-    else if (strncmp(msg, "B1", 2) == 0) strcpy_P(currentMsg, PSTR("Motor Parado"));
-    else if (strncmp(msg, "B2", 2) == 0) strcpy_P(currentMsg, PSTR("Pausa Global"));
-    else if (strncmp(msg, "B4", 2) == 0) strcpy_P(currentMsg, PSTR("Repeat ON"));
-    else if (strncmp(msg, "B5", 2) == 0) strcpy_P(currentMsg, PSTR("Fila Executada"));
-    else if (strncmp(msg, "B6", 2) == 0) strcpy_P(currentMsg, PSTR("Repeat OFF"));
-    else if (strncmp(msg, "B7", 2) == 0) strcpy_P(currentMsg, PSTR("Motor Habilitado"));
-    else if (strncmp(msg, "B8", 2) == 0) strcpy_P(currentMsg, PSTR("Motor Desabiltd."));
+    if (strncmp(msg, "A0", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Sis Inicializado"));
+    else if (strncmp(msg, "B0", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Iniciando Fila"));
+    else if (strncmp(msg, "B1", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Motor Parado"));
+    else if (strncmp(msg, "B2", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Pausa Global"));
+    else if (strncmp(msg, "B4", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Repeat ON"));
+    else if (strncmp(msg, "B5", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Fila Executada"));
+    else if (strncmp(msg, "B6", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Repeat OFF"));
+    else if (strncmp(msg, "B7", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Motor Habilitado"));
+    else if (strncmp(msg, "B8", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Motor Desabiltd."));
     else if (strncmp(msg, "B9", 2) == 0 ||
-             strncmp(msg, "BA", 2) == 0) strcpy_P(currentMsg, PSTR("Preset EEPROM"));
-    else if (strncmp(msg, "E0", 2) == 0) strcpy_P(currentMsg, PSTR("Err: Em Execucao"));
-    else if (strncmp(msg, "E1", 2) == 0) strcpy_P(currentMsg, PSTR("Err: Fila Vazia"));
-    else if (strncmp(msg, "E2", 2) == 0) strcpy_P(currentMsg, PSTR("Err: Fila Cheia"));
-    else if (strncmp(msg, "E3", 2) == 0) strcpy_P(currentMsg, PSTR("Erro de Sintaxe"));
-    else if (strncmp(msg, "E4", 2) == 0) strcpy_P(currentMsg, PSTR("Preset Invalido"));
+             strncmp(msg, "BA", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Preset EEPROM"));
+    else if (strncmp(msg, "E0", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Err: Em Execucao"));
+    else if (strncmp(msg, "E1", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Err: Fila Vazia"));
+    else if (strncmp(msg, "E2", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Err: Fila Cheia"));
+    else if (strncmp(msg, "E3", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Erro de Sintaxe"));
+    else if (strncmp(msg, "E4", 2) == 0)
+        strcpy_P(currentMsg, PSTR("Preset Invalido"));
     else if (strncmp(msg, "BB", 2) == 0 ||
-             strncmp(msg, "BC", 2) == 0) strcpy_P(currentMsg, PSTR("FastAct. Exec"));
+             strncmp(msg, "BC", 2) == 0)
+        strcpy_P(currentMsg, PSTR("FastAct. Exec"));
     else if (strncmp(msg, "C0", 2) == 0)
         snprintf_P(currentMsg, sizeof(currentMsg), PSTR("Salvo: Slot %c"), msg[3]);
     else
@@ -225,12 +242,13 @@ void parseH8PMessage(const char *msg)
         currentMsg[MSG_MAX_LEN] = '\0';
     }
 
-    Serial.print(F("-> ")); Serial.println(currentMsg);
+    Serial.print(F("-> "));
+    Serial.println(currentMsg);
 
     systemFlags.isMessageLong = (strlen(currentMsg) > 16) ? 1 : 0;
-    systemFlags.msgIsStatus   = 0; // Mensagem H8P não expira por timeout
-    scrollIndexBottom         = 0;
-    lastMsgTime               = millis();
+    systemFlags.msgIsStatus = 0; // Mensagem H8P não expira por timeout
+    scrollIndexBottom = 0;
+    lastMsgTime = millis();
     systemFlags.lcdNeedsUpdate = 1;
 }
 
@@ -240,9 +258,11 @@ void parseH8PMessage(const char *msg)
 void processKeypad()
 {
     char key = keypad.getKey();
-    if (!key) return;
+    if (!key)
+        return;
 
-    Serial.print(F("Tecla: ")); Serial.println(key);
+    Serial.print(F("Tecla: "));
+    Serial.println(key);
 
     // Modo Fast Act: teclas numéricas disparam macros diretamente
     if (systemFlags.isFastActMode && isDigit(key))
@@ -275,7 +295,8 @@ void processKeypad()
             if (inputLen > 0)
             {
                 mainSerial.println(inputBuffer);
-                Serial.print(F("TX: ")); Serial.println(inputBuffer);
+                Serial.print(F("TX: "));
+                Serial.println(inputBuffer);
             }
             inputLen = 0;
             inputBuffer[0] = '\0';
@@ -326,7 +347,7 @@ void processKeypad()
             if (inputLen < MAX_INPUT_LEN)
             {
                 inputBuffer[inputLen++] = ':';
-                inputBuffer[inputLen]   = '\0';
+                inputBuffer[inputLen] = '\0';
             }
         }
         else
@@ -335,7 +356,7 @@ void processKeypad()
             if (inputLen < MAX_INPUT_LEN)
             {
                 inputBuffer[inputLen++] = key;
-                inputBuffer[inputLen]   = '\0';
+                inputBuffer[inputLen] = '\0';
             }
         }
     }
@@ -343,14 +364,17 @@ void processKeypad()
     {
         // Pressionamento convencional (sem prefixo '*' ativo)
         char toAppend = 0;
-        if      (key == '#') toAppend = ',';
-        else if (key == '*') toAppend = ':';
-        else                 toAppend = key;
+        if (key == '#')
+            toAppend = ',';
+        else if (key == '*')
+            toAppend = ':';
+        else
+            toAppend = key;
 
         if (toAppend && inputLen < MAX_INPUT_LEN)
         {
             inputBuffer[inputLen++] = toAppend;
-            inputBuffer[inputLen]   = '\0';
+            inputBuffer[inputLen] = '\0';
         }
     }
 
@@ -368,9 +392,9 @@ void handleDisplayTasks()
     if (systemFlags.msgIsStatus && (now - lastMsgTime >= MSG_TIMEOUT_MS))
     {
         strcpy_P(currentMsg, systemFlags.isFastActMode ? PSTR("[FAST ACT]") : PSTR("Pronto."));
-        systemFlags.isMessageLong  = 0;
-        systemFlags.msgIsStatus    = 0;
-        scrollIndexBottom          = 0;
+        systemFlags.isMessageLong = 0;
+        systemFlags.msgIsStatus = 0;
+        scrollIndexBottom = 0;
         systemFlags.lcdNeedsUpdate = 1;
     }
 
@@ -408,9 +432,9 @@ void updateLCD()
     char dispBot[17];
 
     // --- Linha 1 (Topo): [F] Cmd: ou Cmd: + últimos N chars do inputBuffer ---
-    const char *prefix  = systemFlags.isFastActMode ? "[F] Cmd:" : "Cmd:";
-    uint8_t prefixLen   = systemFlags.isFastActMode ? 8 : 4;
-    uint8_t maxInLen    = 16 - prefixLen;
+    const char *prefix = systemFlags.isFastActMode ? "[F] Cmd:" : "Cmd:";
+    uint8_t prefixLen = systemFlags.isFastActMode ? 8 : 4;
+    uint8_t maxInLen = 16 - prefixLen;
 
     strncpy(dispTop, prefix, 16);
     dispTop[prefixLen] = '\0';
@@ -419,7 +443,8 @@ void updateLCD()
     {
         strncat(dispTop, inputBuffer, maxInLen);
         uint8_t total = strlen(dispTop);
-        while (total < 16) dispTop[total++] = ' ';
+        while (total < 16)
+            dispTop[total++] = ' ';
         dispTop[16] = '\0';
     }
     else
@@ -435,7 +460,8 @@ void updateLCD()
     {
         strncpy(dispBot, currentMsg, 16);
         uint8_t total = msgLen;
-        while (total < 16) dispBot[total++] = ' ';
+        while (total < 16)
+            dispBot[total++] = ' ';
         dispBot[16] = '\0';
     }
     else
@@ -444,16 +470,18 @@ void updateLCD()
         scrollTextToBuffer(dispBot, currentMsg, msgLen, scrollIndexBottom);
     }
 
-    lcd.setCursor(0, 0); lcd.print(dispTop);
-    lcd.setCursor(0, 1); lcd.print(dispBot);
+    lcd.setCursor(0, 0);
+    lcd.print(dispTop);
+    lcd.setCursor(0, 1);
+    lcd.print(dispBot);
 }
 
 // Gera janela de 16 chars com scroll circular — sem String, sem heap
 void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t idx)
 {
-    const uint8_t GAP  = 4; // Espaços de separação entre loops do texto
-    uint8_t totalLen   = textLen + GAP;
-    uint16_t start     = idx % totalLen;
+    const uint8_t GAP = 4; // Espaços de separação entre loops do texto
+    uint8_t totalLen = textLen + GAP;
+    uint16_t start = idx % totalLen;
 
     for (uint8_t i = 0; i < 16; i++)
     {
@@ -466,14 +494,21 @@ void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t i
 void updateTM1638()
 {
     char tmStr[MAX_INPUT_LEN + 1];
-    uint8_t tmLen    = 0;
+    uint8_t tmLen = 0;
     uint8_t rawChars = 0;
 
     for (uint8_t i = 0; i < inputLen && tmLen < MAX_INPUT_LEN; i++)
     {
         char c = inputBuffer[i];
-        if (c == ':' || c == ',') { tmStr[tmLen++] = '.'; }
-        else                      { tmStr[tmLen++] = c; rawChars++; }
+        if (c == ':' || c == ',')
+        {
+            tmStr[tmLen++] = '.';
+        }
+        else
+        {
+            tmStr[tmLen++] = c;
+            rawChars++;
+        }
     }
     while (rawChars < 8 && tmLen < MAX_INPUT_LEN)
     {
@@ -492,17 +527,18 @@ void updateTM1638()
 void setStatusMsg(const char *msg)
 {
     strncpy(currentMsg, msg, MSG_MAX_LEN);
-    currentMsg[MSG_MAX_LEN]    = '\0';
-    systemFlags.isMessageLong  = (strlen(currentMsg) > 16) ? 1 : 0;
-    systemFlags.msgIsStatus    = 1; // [OPT-3] Marcada como temporária
-    scrollIndexBottom          = 0;
-    lastMsgTime                = millis();
+    currentMsg[MSG_MAX_LEN] = '\0';
+    systemFlags.isMessageLong = (strlen(currentMsg) > 16) ? 1 : 0;
+    systemFlags.msgIsStatus = 1; // [OPT-3] Marcada como temporária
+    scrollIndexBottom = 0;
+    lastMsgTime = millis();
     systemFlags.lcdNeedsUpdate = 1;
 }
 
 void saveSlot(uint8_t slot)
 {
-    if (slot >= NUM_SLOTS) return;
+    if (slot >= NUM_SLOTS)
+        return;
     int addr = EEPROM_START_ADDR + (slot * SLOT_SIZE);
 
     // [Problema #3] Limpa todo o bloco antes de gravar (evita bytes residuais)
@@ -514,8 +550,10 @@ void saveSlot(uint8_t slot)
         EEPROM.update(addr + i, inputBuffer[i]);
     // Null terminator já garantido pela limpeza acima
 
-    Serial.print(F("EEPROM Write Slot ")); Serial.print(slot);
-    Serial.print(F(": "));                Serial.println(inputBuffer);
+    Serial.print(F("EEPROM Write Slot "));
+    Serial.print(slot);
+    Serial.print(F(": "));
+    Serial.println(inputBuffer);
 
     char msg[20];
     snprintf_P(msg, sizeof(msg), PSTR("Slot %d Salvo!"), slot);
@@ -524,7 +562,8 @@ void saveSlot(uint8_t slot)
 
 void runSlot(uint8_t slot)
 {
-    if (slot >= NUM_SLOTS) return;
+    if (slot >= NUM_SLOTS)
+        return;
     int addr = EEPROM_START_ADDR + (slot * SLOT_SIZE);
 
     // [OPT-1] Leitura tipo-segura via EEPROM.get()
@@ -542,8 +581,10 @@ void runSlot(uint8_t slot)
     }
 
     mainSerial.println(buffer);
-    Serial.print(F("FastAct Slot ")); Serial.print(slot);
-    Serial.print(F(": "));           Serial.println(buffer);
+    Serial.print(F("FastAct Slot "));
+    Serial.print(slot);
+    Serial.print(F(": "));
+    Serial.println(buffer);
 
     // Feedback: ">> [comando]" (truncado para caber no LCD com scroll)
     char msg[MSG_MAX_LEN + 1];
@@ -562,7 +603,9 @@ void diagnosticEEPROM()
         EEPROM.get(addr, buffer);
         buffer[SLOT_SIZE - 1] = '\0';
 
-        Serial.print(F("Slot ")); Serial.print(s); Serial.print(F(": "));
+        Serial.print(F("Slot "));
+        Serial.print(s);
+        Serial.print(F(": "));
         if (buffer[0] == '\0' || (uint8_t)buffer[0] == 0xFF)
             Serial.println(F("[Vazio]"));
         else
