@@ -76,213 +76,285 @@ String currentMsg = "Pronto.";
 unsigned long lastScrollTime = 0;
 int scrollIndexBottom = 0;
 
-void setup() {
-  // Serial de Debug (opcional, pode ser vista no Monitor Serial do PC)
-  Serial.begin(9600);
+void setup()
+{
+    // Serial de Debug (opcional, pode ser vista no Monitor Serial do PC)
+    Serial.begin(9600);
 
-  // Serial para comunicação com a placa principal
-  mainSerial.begin(9600);
+    // Serial para comunicação com a placa principal
+    mainSerial.begin(9600);
 
-  // Inicialização do LCD (Comentado para teste de teclado)
-  lcd.init();
-  lcd.backlight();
+    // Inicialização do LCD (Comentado para teste de teclado)
+    lcd.init();
+    lcd.backlight();
 
-  // Inicialização do TM1638 (Comentado para teste de teclado)
-  // tm.displayBegin();
-  // tm.reset();
+    // Inicialização do TM1638 (Comentado para teste de teclado)
+    // tm.displayBegin();
+    // tm.reset();
 
-  // Interface Inicial
-  updateLCD();
-
-  // updateTM1638(); // Exibe vazio
-
-  Serial.println("Commander Iniciado.");
-}
-
-void processIncomingMessage() {
-  if (mainSerial.available()) {
-    String msg = mainSerial.readStringUntil('\n');
-    msg.trim(); // Remove espaços e quebras de linha (\r\n)
-
-    if (msg.length() > 0) {
-      Serial.print("Recebido: ");
-      Serial.println(msg); // Debug cru
-
-      String translatedMsg = msg;
-      // Tradução dos códigos H8P para o terminal
-      if (msg == "A0") translatedMsg = "Sis Inicializado";
-      else if (msg == "B0") translatedMsg = "Iniciando Fila";
-      else if (msg == "B1") translatedMsg = "Motor Parado";
-      else if (msg.startsWith("B2")) translatedMsg = "Pausa Global";
-      else if (msg == "B4") translatedMsg = "Repeat ON";
-      else if (msg == "B5") translatedMsg = "Fila Executada";
-      else if (msg == "B6") translatedMsg = "Repeat OFF";
-      else if (msg.startsWith("B7")) translatedMsg = "Motor Habilitado";
-      else if (msg.startsWith("B8")) translatedMsg = "Motor Desabiltd.";
-      else if (msg.startsWith("B9") || msg.startsWith("BA")) translatedMsg = "Preset EEPROM";
-      else if (msg == "E0") translatedMsg = "Err: Em Execucao";
-      else if (msg == "E1") translatedMsg = "Err: Fila Vazia";
-      else if (msg == "E2") translatedMsg = "Err: Fila Cheia";
-      else if (msg == "E3") translatedMsg = "Erro de Sintaxe";
-      else if (msg == "E4") translatedMsg = "Preset Invalido";
-      else if (msg.startsWith("C0")) translatedMsg = "Salvo: Slot " + msg.substring(3, 4);
-      else if (msg.startsWith("BB") || msg.startsWith("BC")) translatedMsg = "FastAct. Exec";
-
-      Serial.println("-> " + translatedMsg);
-      currentMsg = translatedMsg;
-      scrollIndexBottom = 0;
-      updateLCD();
-    }
-  }
-}
-
-String getScrollText(String text, int index) {
-  if (text.length() <= 16) {
-    while (text.length() < 16) text += " ";
-    return text;
-  }
-  String padded = text + "    "; // 4 espaços de separação
-  int len = padded.length();
-  int idx = index % len;
-  String result = padded.substring(idx) + padded.substring(0, idx);
-  return result.substring(0, 16);
-}
-
-void updateLCD() {
-  // Linha 1: Fixo "Cmd:" (4 chars) + últimos 12 chars de inputBuffer
-  String dispTop = "Cmd:";
-  if (inputBuffer.length() <= 12) {
-    dispTop += inputBuffer;
-    while (dispTop.length() < 16) dispTop += " ";
-  } else {
-    dispTop += inputBuffer.substring(inputBuffer.length() - 12);
-  }
-
-  // Linha 2: Animação Marquee apenas para mensagens longas (>16)
-  String dispBot = getScrollText(currentMsg, scrollIndexBottom);
-  
-  lcd.setCursor(0, 0);
-  lcd.print(dispTop);
-  lcd.setCursor(0, 1);
-  lcd.print(dispBot);
-}
-
-void handleScroll() {
-  if (millis() - lastScrollTime >= 400) {
-    lastScrollTime = millis();
-    
-    if (currentMsg.length() > 16) {
-      scrollIndexBottom++;
-      updateLCD();
-    }
-  }
-}
-
-void updateTM1638() {
-  String tmString = "";
-  // Converte ':' e ',' para '.' para que não ocupem um dígito inteiro no
-  // display de 7 segmentos
-  for (int i = 0; i < inputBuffer.length(); i++) {
-    char c = inputBuffer.charAt(i);
-    if (c == ':' || c == ',') {
-      tmString += ".";
-    } else {
-      tmString += c;
-    }
-  }
-
-  // Preenche o resto com espaços para garantir que os 8 dígitos sejam
-  // sobrepostos corretamente
-  String paddedStr = tmString;
-  int rawChars = 0;
-  for (int i = 0; i < tmString.length(); i++) {
-    if (tmString.charAt(i) != '.')
-      rawChars++;
-  }
-
-  while (rawChars < 8) {
-    paddedStr += " ";
-    rawChars++;
-  }
-
-  // A biblioteca exibe a string formatada no display
-  tm.displayText(paddedStr.c_str());
-}
-
-void loop() {
-  processIncomingMessage();
-  handleScroll();
-
-  char key = keypad.getKey();
-
-  if (key) {
-    Serial.print("Tecla Pressionada: ");
-    Serial.println(key);
-    // Tratamento especial com combinações usando '*'
-    // O '*' adiciona um ':' no buffer.
-    // Se o buffer termina com ':', verificamos as combinações.
-    if (inputBuffer.endsWith(":")) {
-      if (key == '#') {
-        // * + # -> Enter (Enviar Comando)
-        inputBuffer.remove(inputBuffer.length() - 1);
-
-        if (inputBuffer.length() == 0 && lastCommand.length() > 0) {
-          inputBuffer = lastCommand;
-        } else if (inputBuffer.length() > 0) {
-          lastCommand = inputBuffer;
-        }
-
-        if (inputBuffer.length() > 0) {
-          // Envia o comando para a placa principal
-          mainSerial.println(inputBuffer);
-          Serial.println("Enviado: " + inputBuffer); // Debug
-        }
-        inputBuffer = "";
-      } else if (key == 'C') {
-        // * + C -> Clear
-        inputBuffer = "";
-      } else if (key == 'D') {
-        // * + D -> Backspace
-        if (inputBuffer.length() >= 2) {
-          inputBuffer.remove(inputBuffer.length() - 2);
-        } else {
-          inputBuffer = "";
-        }
-      } else if (key == 'A') {
-        // * + A -> Sinal de menos '-'
-        inputBuffer.setCharAt(inputBuffer.length() - 1, '-');
-      } else if (key == '*') {
-        // Pressionamento repetido de '*'
-        if (inputBuffer.length() < MAX_INPUT_LEN) {
-          inputBuffer += ":";
-        }
-      } else {
-        // Tecla normal após um '*' sem ser combinação especial
-        if (inputBuffer.length() < MAX_INPUT_LEN) {
-          inputBuffer += key;
-        }
-      }
-    } else {
-      // Fluxo normal (sem prefixo '*')
-      if (key == '#') {
-        // Pressionamento normal de '#' -> Vira vírgula ','
-        if (inputBuffer.length() < MAX_INPUT_LEN) {
-          inputBuffer += ",";
-        }
-      } else if (key == '*') {
-        // Pressionamento normal de '*' -> Vira dois-pontos ':'
-        if (inputBuffer.length() < MAX_INPUT_LEN) {
-          inputBuffer += ":";
-        }
-      } else {
-        // Teclas normais (0-9, A, B, C, D)
-        if (inputBuffer.length() < MAX_INPUT_LEN) {
-          inputBuffer += key;
-        }
-      }
-    }
-
+    // Interface Inicial
     updateLCD();
-    // updateTM1638();
-  }
+
+    // updateTM1638(); // Exibe vazio
+
+    Serial.println("Commander Iniciado.");
+}
+
+void processIncomingMessage()
+{
+    if (mainSerial.available())
+    {
+        String msg = mainSerial.readStringUntil('\n');
+        msg.trim(); // Remove espaços e quebras de linha (\r\n)
+
+        if (msg.length() > 0)
+        {
+            Serial.print("Recebido: ");
+            Serial.println(msg); // Debug cru
+
+            String translatedMsg = msg;
+            // Tradução dos códigos H8P para o terminal
+            if (msg == "A0")
+                translatedMsg = "Sis Inicializado";
+            else if (msg == "B0")
+                translatedMsg = "Iniciando Fila";
+            else if (msg == "B1")
+                translatedMsg = "Motor Parado";
+            else if (msg.startsWith("B2"))
+                translatedMsg = "Pausa Global";
+            else if (msg == "B4")
+                translatedMsg = "Repeat ON";
+            else if (msg == "B5")
+                translatedMsg = "Fila Executada";
+            else if (msg == "B6")
+                translatedMsg = "Repeat OFF";
+            else if (msg.startsWith("B7"))
+                translatedMsg = "Motor Habilitado";
+            else if (msg.startsWith("B8"))
+                translatedMsg = "Motor Desabiltd.";
+            else if (msg.startsWith("B9") || msg.startsWith("BA"))
+                translatedMsg = "Preset EEPROM";
+            else if (msg == "E0")
+                translatedMsg = "Err: Em Execucao";
+            else if (msg == "E1")
+                translatedMsg = "Err: Fila Vazia";
+            else if (msg == "E2")
+                translatedMsg = "Err: Fila Cheia";
+            else if (msg == "E3")
+                translatedMsg = "Erro de Sintaxe";
+            else if (msg == "E4")
+                translatedMsg = "Preset Invalido";
+            else if (msg.startsWith("C0"))
+                translatedMsg = "Salvo: Slot " + msg.substring(3, 4);
+            else if (msg.startsWith("BB") || msg.startsWith("BC"))
+                translatedMsg = "FastAct. Exec";
+
+            Serial.println("-> " + translatedMsg);
+            currentMsg = translatedMsg;
+            scrollIndexBottom = 0;
+            updateLCD();
+        }
+    }
+}
+
+String getScrollText(String text, int index)
+{
+    if (text.length() <= 16)
+    {
+        while (text.length() < 16)
+            text += " ";
+        return text;
+    }
+    String padded = text + "    "; // 4 espaços de separação
+    int len = padded.length();
+    int idx = index % len;
+    String result = padded.substring(idx) + padded.substring(0, idx);
+    return result.substring(0, 16);
+}
+
+void updateLCD()
+{
+    // Linha 1: Fixo "Cmd:" (4 chars) + últimos 12 chars de inputBuffer
+    String dispTop = "Cmd:";
+    if (inputBuffer.length() <= 12)
+    {
+        dispTop += inputBuffer;
+        while (dispTop.length() < 16)
+            dispTop += " ";
+    }
+    else
+    {
+        dispTop += inputBuffer.substring(inputBuffer.length() - 12);
+    }
+
+    // Linha 2: Animação Marquee apenas para mensagens longas (>16)
+    String dispBot = getScrollText(currentMsg, scrollIndexBottom);
+
+    lcd.setCursor(0, 0);
+    lcd.print(dispTop);
+    lcd.setCursor(0, 1);
+    lcd.print(dispBot);
+}
+
+void handleScroll()
+{
+    if (millis() - lastScrollTime >= 400)
+    {
+        lastScrollTime = millis();
+
+        if (currentMsg.length() > 16)
+        {
+            scrollIndexBottom++;
+            updateLCD();
+        }
+    }
+}
+
+void updateTM1638()
+{
+    String tmString = "";
+    // Converte ':' e ',' para '.' para que não ocupem um dígito inteiro no
+    // display de 7 segmentos
+    for (int i = 0; i < inputBuffer.length(); i++)
+    {
+        char c = inputBuffer.charAt(i);
+        if (c == ':' || c == ',')
+        {
+            tmString += ".";
+        }
+        else
+        {
+            tmString += c;
+        }
+    }
+
+    // Preenche o resto com espaços para garantir que os 8 dígitos sejam
+    // sobrepostos corretamente
+    String paddedStr = tmString;
+    int rawChars = 0;
+    for (int i = 0; i < tmString.length(); i++)
+    {
+        if (tmString.charAt(i) != '.')
+            rawChars++;
+    }
+
+    while (rawChars < 8)
+    {
+        paddedStr += " ";
+        rawChars++;
+    }
+
+    // A biblioteca exibe a string formatada no display
+    tm.displayText(paddedStr.c_str());
+}
+
+void loop()
+{
+    processIncomingMessage();
+    handleScroll();
+
+    char key = keypad.getKey();
+
+    if (key)
+    {
+        Serial.print("Tecla Pressionada: ");
+        Serial.println(key);
+        // Tratamento especial com combinações usando '*'
+        // O '*' adiciona um ':' no buffer.
+        // Se o buffer termina com ':', verificamos as combinações.
+        if (inputBuffer.endsWith(":"))
+        {
+            if (key == '#')
+            {
+                // * + # -> Enter (Enviar Comando)
+                inputBuffer.remove(inputBuffer.length() - 1);
+
+                if (inputBuffer.length() == 0 && lastCommand.length() > 0)
+                {
+                    inputBuffer = lastCommand;
+                }
+                else if (inputBuffer.length() > 0)
+                {
+                    lastCommand = inputBuffer;
+                }
+
+                if (inputBuffer.length() > 0)
+                {
+                    // Envia o comando para a placa principal
+                    mainSerial.println(inputBuffer);
+                    Serial.println("Enviado: " + inputBuffer); // Debug
+                }
+                inputBuffer = "";
+            }
+            else if (key == 'C')
+            {
+                // * + C -> Clear
+                inputBuffer = "";
+            }
+            else if (key == 'D')
+            {
+                // * + D -> Backspace
+                if (inputBuffer.length() >= 2)
+                {
+                    inputBuffer.remove(inputBuffer.length() - 2);
+                }
+                else
+                {
+                    inputBuffer = "";
+                }
+            }
+            else if (key == 'A')
+            {
+                // * + A -> Sinal de menos '-'
+                inputBuffer.setCharAt(inputBuffer.length() - 1, '-');
+            }
+            else if (key == '*')
+            {
+                // Pressionamento repetido de '*'
+                if (inputBuffer.length() < MAX_INPUT_LEN)
+                {
+                    inputBuffer += ":";
+                }
+            }
+            else
+            {
+                // Tecla normal após um '*' sem ser combinação especial
+                if (inputBuffer.length() < MAX_INPUT_LEN)
+                {
+                    inputBuffer += key;
+                }
+            }
+        }
+        else
+        {
+            // Fluxo normal (sem prefixo '*')
+            if (key == '#')
+            {
+                // Pressionamento normal de '#' -> Vira vírgula ','
+                if (inputBuffer.length() < MAX_INPUT_LEN)
+                {
+                    inputBuffer += ",";
+                }
+            }
+            else if (key == '*')
+            {
+                // Pressionamento normal de '*' -> Vira dois-pontos ':'
+                if (inputBuffer.length() < MAX_INPUT_LEN)
+                {
+                    inputBuffer += ":";
+                }
+            }
+            else
+            {
+                // Teclas normais (0-9, A, B, C, D)
+                if (inputBuffer.length() < MAX_INPUT_LEN)
+                {
+                    inputBuffer += key;
+                }
+            }
+        }
+
+        updateLCD();
+        // updateTM1638();
+    }
 }

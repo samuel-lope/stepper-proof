@@ -12,10 +12,20 @@ Conecte os motores ao MCU (Arduino Uno/Nano):
 *(Nota: Os drivers usam lógica de Enable invertida, LOW para ativar).*
 
 ### 2. Firmware (AVR)
+### 2. Firmware (AVR)
 Abra `stepcontrol/stepcontrol.ino`, compile e faça o upload. A porta serial operará a **9600 bps**.
+
+Para controle físico opcional, escolha uma das versões do StepCommander em `stepcommander/` ou `stepcommander-v2/`.
 
 ### 3. Interface Web
 Execute o servidor local apontando para a pasta `public/`. Acesse `http://localhost:5500` no Google Chrome ou Edge (necessário suporte nativo a Web Serial API).
+
+## Estrutura do Projeto
+- [stepcontrol/]: Firmware da Placa Principal (Dual Motor Engine)
+- [stepcommander/]: Firmware V1 do Interface de Teclado (Simples/Legacy)
+- [stepcommander-v2/]: Firmware V2 do Interface de Teclado (Não-bloqueante/Otimizado)
+- [public/]: Dashboard Web (React/Tailwind)
+- [docs/]: Documentação Técnica e Guias de Montagem
 
 ## Features
 
@@ -27,7 +37,7 @@ Execute o servidor local apontando para a pasta `public/`. Acesse `http://localh
 - **EEPROM Fast Action:** Execução de 5 comandos pré-gravados (`18`, `19`, `1A`).
 - **Customização Total:** Painel de *Settings* com *Dictionary Override* e *Visibility Control*.
 - **Internacionalização (i18n):** Suporte nativo a `EN-US` e `PT-BR`.
-- **StepCommander (Interface Física):** Novo módulo periférico (Arduino secundário) com Teclado Matricial 4x4 e LCD 16x2 para controle sem PC via protocolo H8P.
+- **StepCommander (Interface Física):** Módulo periférico para controle sem PC via protocolo H8P. Disponível em duas versões: **V1 (Original)** para simplicidade e **V2 (Otimizada)** para performance não-bloqueante. Ver [Docs](./docs/STEPCOMMANDER.md).
 
 ## Configuration
 

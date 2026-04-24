@@ -3,7 +3,8 @@
 
 ## Core Files
 - [stepcontrol/stepcontrol.ino]: Firmware AVR (C++). Timer1 Dual-Channel Freerunning. Protocolo H8P (01-1B).
-- [stepcommander/stepcommander.ino]: Periférico de I/O (Atmega328P). Teclado 4x4 e LCD I2C para controle físico remoto.
+- [stepcommander/stepcommander.ino]: Periférico de I/O V1 (Atmega328P). Teclado 4x4 e LCD I2C simples.
+- [stepcommander-v2/stepcommander-v2.ino]: Periférico de I/O V2 (Atmega328P). Implementação não-bloqueante e otimizada.
 - [public/app.js]: Main UI logic. Serial link, H8P parser, live telemetry, and jog scrubbers.
 - [public/i18n.js]: Translation engine (EN/PT) with dynamic dictionary override system.
 - [docs/INTEGRATION.md]: Technical API Reference. Exhaustive H8P protocol specification.
