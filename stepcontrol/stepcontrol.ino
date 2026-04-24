@@ -18,10 +18,11 @@
  * 15 : motor     (Opcional - Motor Alvo 1 ou 2. Se vazio, motor 1)
  * 16 : enableMotor  (Habilita driver do motor. Ex: 16:1 ou 16:2 — EN LOW)
  * 17 : disableMotor (Desabilita driver do motor. Ex: 17:1 ou 17:2 — EN HIGH)
- * 18 : fastAction   (Executa preset EEPROM imediatamente. Ex: 18:0 a 18:4)
+ * 18 : fastAction   (Executa preset EEPROM imediatamente. Ex: 18:0 a 18:9)
  * 19 : writePreset  (Grava preset na EEPROM. Ex: 19:2,10:800,11:300...)
  * 1A : readPreset   (Lê preset da EEPROM. Ex: 1A:2)
  * 1B : fastActionRep(Executa preset EEPROM com loop customizado. Ex: 1B:0:-4)
+ * 1C : saveToEEPROM (Salva linha da SRAM na EEPROM. Ex: 1C:3:2)
  *
  * --- ALERTAS E RESPOSTAS (RECEBIDOS DO ARDUINO) ---
  * A0 : Sistema Inicializado com Sucesso
@@ -42,10 +43,10 @@
  * C1 : [TELEMETRIA] Contagem de slots na SRAM
  * D0 : [TELEMETRIA] Linha ativada (MNN: Motor e Slot)
  * E0 : Erro: Motor já em execução
- * E1 : Erro: Fila dSRAM vazia
+ * E1 : Erro: Fila dSRAM vazia / Slot SRAM inválido
  * E2 : Erro: Fila SRAM cheia
  * E3 : Erro de sintaxe (Parâmetros obrigatórios ausentes)
- * E4 : Erro: Índice de preset inválido (fora de 0-4)
+ * E4 : Erro: Índice de preset inválido (fora de 0-9)
  * =================================================================================
  */
 
@@ -77,7 +78,7 @@
 #define EEPROM_MAGIC_BYTE 0xA5
 #define EEPROM_MAGIC_ADDR 0
 #define EEPROM_PRESETS_ADDR 1
-#define MAX_PRESETS 5
+#define MAX_PRESETS 10
 
 typedef struct {
     uint32_t step;
@@ -316,7 +317,12 @@ void inicializarPresetsEEPROM() {
         {800,  300, 0, 1, 0, 1},   // [1] M1, 800 passos, 300µs, rev, 1 rep
         {3200, 500, 1, 2, 1000, 1},// [2] M1, 3200 passos, 500µs, fwd, 2 reps, 1s pausa
         {1600, 400, 1, 1, 0, 2},   // [3] M2, 1600 passos, 400µs, fwd, 1 rep
-        {800,  200, 0, 1, 500, 2}  // [4] M2, 800 passos, 200µs, rev, 1 rep, 500ms pausa
+        {800,  200, 0, 1, 500, 2}, // [4] M2, 800 passos, 200µs, rev, 1 rep, 500ms pausa
+        {0, 0, 0, 0, 0, 1},        // [5] Vazio
+        {0, 0, 0, 0, 0, 1},        // [6] Vazio
+        {0, 0, 0, 0, 0, 1},        // [7] Vazio
+        {0, 0, 0, 0, 0, 1},        // [8] Vazio
+        {0, 0, 0, 0, 0, 1}         // [9] Vazio
     };
 
     for (uint8_t i = 0; i < MAX_PRESETS; i++) {
@@ -545,14 +551,14 @@ void interpretarComando(char* linha) {
                     return;
                 }
                 else if (chave == 0x18) { // fastAction — executa preset EEPROM
-                    if (valor > 4) { Serial.println(0xE4, HEX); return; }
+                    if (valor > 9) { Serial.println(0xE4, HEX); return; }
                     executarFastAction((uint8_t)valor);
                     return;
                 }
                 else if (chave == 0x19) { // writePreset — grava preset na EEPROM
                     // Sintaxe: 19:idx,10:step,11:vel,12:dir,13:repeat,14:pause,15:motor
                     // O valor aqui é o índice do preset. Os parâmetros vêm nos tokens seguintes.
-                    if (valor > 4) { Serial.println(0xE4, HEX); return; }
+                    if (valor > 9) { Serial.println(0xE4, HEX); return; }
                     uint8_t preset_idx = (uint8_t)valor;
                     ComandoMotor preset_cmd = {0, 0, 0, 1, 0, 1};
                     bool preset_valido = false;
@@ -589,7 +595,7 @@ void interpretarComando(char* linha) {
                     return;
                 }
                 else if (chave == 0x1A) { // readPreset — lê preset da EEPROM
-                    if (valor > 4) { Serial.println(0xE4, HEX); return; }
+                    if (valor > 9) { Serial.println(0xE4, HEX); return; }
                     ComandoMotor p = lerPresetEEPROM((uint8_t)valor);
                     Serial.print(0xBA, HEX); Serial.print(':'); Serial.print(valor);
                     Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(p.step);
@@ -602,9 +608,33 @@ void interpretarComando(char* linha) {
                 }
                 else if (chave == 0x1B) { // fastActionRep — executa preset EEPROM override de repetições (Ex: 1B:slot:rep)
                     char* rep_str = strtok_r(NULL, ":", &ponteiro_dois_pontos);
-                    if (valor > 4 || rep_str == NULL) { Serial.println(0xE4, HEX); return; }
+                    if (valor > 9 || rep_str == NULL) { Serial.println(0xE4, HEX); return; }
                     int32_t custom_rep_signed = atol(rep_str);
                     executarFastActionRepeat((uint8_t)valor, custom_rep_signed);
+                    return;
+                }
+                else if (chave == 0x1C) { // saveToEEPROM - copia slot SRAM para EEPROM (Ex: 1C:eeprom_slot:sram_slot)
+                    char* sram_str = strtok_r(NULL, ":", &ponteiro_dois_pontos);
+                    if (valor > 9) { Serial.println(0xE4, HEX); return; } // Verifica índice da EEPROM
+                    if (sram_str == NULL) { Serial.println(0xE3, HEX); return; } // Faltou parâmetro
+                    
+                    uint8_t sram_slot = (uint8_t)atol(sram_str);
+                    if (sram_slot >= qtd_comandos_na_fila) {
+                        Serial.println(0xE1, HEX); // Slot SRAM não preenchido ou vazio
+                        return;
+                    }
+                    
+                    ComandoMotor preset_cmd = fila_comandos[sram_slot];
+                    gravarPresetEEPROM((uint8_t)valor, preset_cmd);
+                    
+                    // Retorna confirmação (mesmo pacote do B9)
+                    Serial.print(0xB9, HEX); Serial.print(':'); Serial.print(valor);
+                    Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(preset_cmd.step);
+                    Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(preset_cmd.vel);
+                    Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(preset_cmd.dir);
+                    Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(preset_cmd.repeat);
+                    Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(preset_cmd.pause_ms);
+                    Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(preset_cmd.motor_id);
                     return;
                 }
             }

@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+- **Comando `1C` (Save to EEPROM)**: Novo comando H8P para salvar diretamente uma linha da fila (SRAM) para a EEPROM. Sintaxe: `1C:eeprom_slot:sram_slot`.
+- **Expansão de Memória**: O número máximo de slots na EEPROM (Presets) foi aumentado de 5 para 10 (slots 0 a 9).
 - **Comando de Repetição (Commander)**: Pressionar `*` + `#` no teclado matricial com o buffer vazio reenvia automaticamente o último comando disparado para a placa principal.
 - Documentação revisada seguindo os novos templates 2025.
 - Comentários JSDoc abrangentes nas funções principais do frontend (`app.js` e `i18n.js`).

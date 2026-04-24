@@ -58,7 +58,7 @@ Habilita ou desabilita fisicamente o estágio de potência do driver TB6600 (EN 
 - **Resposta**: `B7:X` ou `B8:X`.
 
 #### `18:X` - Fast Action (EEPROM)
-Executa o preset armazenado no slot `X` (0-4) da EEPROM.
+Executa o preset armazenado no slot `X` (0-9) da EEPROM.
 - **Resposta**: `BB:X,...` (Sucesso) ou `E4` (Slot Inválido).
 
 #### `19:X,...` - Write Preset
@@ -73,6 +73,10 @@ Solicita o dump de dados do slot `X` da EEPROM.
 #### `1B:X:Y` - Scrubber / Jog
 Executa preset `X` com `Y` repetições forçadas. Se `Y` for negativo, inverte a direção original.
 - **Resposta**: `BC:X,...`.
+
+#### `1C:X:Y` - Save SRAM to EEPROM
+Salva a linha de comando armazenada no slot SRAM `Y` (0-19) diretamente no slot EEPROM `X` (0-9).
+- **Resposta**: `B9:X,...` (Confirmação com a linha copiada) ou `E1` (SRAM vazia/inválida).
 
 ### 📥 Parâmetros de Motor (Data Injection)
 
@@ -109,7 +113,7 @@ Enviados como string de campos hexadecimais separados por vírgula.
 | `B5` | **Queue Done** | Todos os motores concluíram a fila. Standby. |
 | `B6` | **Repeat OFF** | Loop infinito desativado (`03:0` recebido). |
 | `E0` | **Already Running** | Operação rejeitada — motores em execução ativa. |
-| `E1` | **Queue Empty** | RUN rejeitado — fila vazia, nada a executar. |
+| `E1` | **Queue Empty** | RUN rejeitado — fila vazia / ou slot SRAM inválido ao copiar para EEPROM. |
 | `E2` | **Queue Overflow** | Limite de 20 slots atingido na SRAM. Use STOP para limpar. |
 | `E3` | **Syntax Error** | Parâmetros obrigatórios (`10` ou `11`) ausentes no pacote. |
 | `B7:X` | **Motor Enabled** | Driver do Motor X habilitado (EN → LOW). Torque de retenção ativo. |
@@ -118,7 +122,7 @@ Enviados como string de campos hexadecimais separados por vírgula.
 | `BA:X,...` | **Preset Data** | Resposta do comando de leitura `1A`. Retorna string do respectivo slot. |
 | `BB:X,...` | **Preset Executed** | Resposta do `18`. Fast Action executado no slot X. |
 | `BC:X,...` | **Rep Override** | Resposta do `1B`. Fast Action executado no slot X com repetições substituídas. |
-| `E4` | **Invalid Slot** | Rejeição: O slot EEPROM requisitado (X) é maior que o configurado (Max: 4). |
+| `E4` | **Invalid Slot** | Rejeição: O slot EEPROM requisitado (X) é maior que o configurado (Max: 9). |
 
 ### 🛰️ Telemetria Passiva (H8P V2)
 
