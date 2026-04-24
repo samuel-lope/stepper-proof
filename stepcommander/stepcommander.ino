@@ -34,6 +34,8 @@
 void updateTM1638();
 void updateLCD();
 void processIncomingMessage();
+void handleScroll();
+String getScrollText(String text, int index);
 
 // --- Configurações do LCD ---
 // Endereço 0x27, 16 colunas e 2 linhas
@@ -69,7 +71,10 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 // --- Variáveis de Controle ---
 String inputBuffer = "";
 String lastCommand = "";
-const int MAX_INPUT_LEN = 12; // 16 colunas do LCD - 4 ("Cmd:") = 12
+const int MAX_INPUT_LEN = 32; // Aumentado para 32 para suportar histórico longo
+String currentMsg = "Pronto.";
+unsigned long lastScrollTime = 0;
+int scrollIndexBottom = 0;
 
 void setup() {
   // Serial de Debug (opcional, pode ser vista no Monitor Serial do PC)
@@ -87,10 +92,7 @@ void setup() {
   // tm.reset();
 
   // Interface Inicial
-  lcd.setCursor(0, 0);
-  lcd.print("Cmd:");
-  lcd.setCursor(0, 1);
-  lcd.print("Pronto.");
+  updateLCD();
 
   // updateTM1638(); // Exibe vazio
 
@@ -106,52 +108,74 @@ void processIncomingMessage() {
       Serial.print("Recebido: ");
       Serial.println(msg); // Debug cru
 
-      // Tradução dos códigos H8P para o terminal (LCD desativado)
-      if (msg == "A0")
-        Serial.println("-> Sis Inicializado");
-      else if (msg == "B0")
-        Serial.println("-> Iniciando Fila");
-      else if (msg == "B1")
-        Serial.println("-> Motor Parado");
-      else if (msg.startsWith("B2"))
-        Serial.println("-> Pausa Global");
-      else if (msg == "B4")
-        Serial.println("-> Repeat ON");
-      else if (msg == "B5")
-        Serial.println("-> Fila Executada");
-      else if (msg == "B6")
-        Serial.println("-> Repeat OFF");
-      else if (msg.startsWith("B7"))
-        Serial.println("-> Motor Habilitado");
-      else if (msg.startsWith("B8"))
-        Serial.println("-> Motor Desabiltd.");
-      else if (msg.startsWith("B9") || msg.startsWith("BA"))
-        Serial.println("-> Preset EEPROM");
-      else if (msg == "E0")
-        Serial.println("-> Err: Em Execucao");
-      else if (msg == "E1")
-        Serial.println("-> Err: Fila Vazia");
-      else if (msg == "E2")
-        Serial.println("-> Err: Fila Cheia");
-      else if (msg == "E3")
-        Serial.println("-> Erro de Sintaxe");
-      else if (msg == "E4")
-        Serial.println("-> Preset Invalido");
-      else if (msg.startsWith("C0"))
-        Serial.println("-> Salvo: Slot " + msg.substring(3, 4));
-      else if (msg.startsWith("BB") || msg.startsWith("BC"))
-        Serial.println("-> FastAct. Exec");
-      else
-        Serial.println("-> " + msg);
+      String translatedMsg = msg;
+      // Tradução dos códigos H8P para o terminal
+      if (msg == "A0") translatedMsg = "Sis Inicializado";
+      else if (msg == "B0") translatedMsg = "Iniciando Fila";
+      else if (msg == "B1") translatedMsg = "Motor Parado";
+      else if (msg.startsWith("B2")) translatedMsg = "Pausa Global";
+      else if (msg == "B4") translatedMsg = "Repeat ON";
+      else if (msg == "B5") translatedMsg = "Fila Executada";
+      else if (msg == "B6") translatedMsg = "Repeat OFF";
+      else if (msg.startsWith("B7")) translatedMsg = "Motor Habilitado";
+      else if (msg.startsWith("B8")) translatedMsg = "Motor Desabiltd.";
+      else if (msg.startsWith("B9") || msg.startsWith("BA")) translatedMsg = "Preset EEPROM";
+      else if (msg == "E0") translatedMsg = "Err: Em Execucao";
+      else if (msg == "E1") translatedMsg = "Err: Fila Vazia";
+      else if (msg == "E2") translatedMsg = "Err: Fila Cheia";
+      else if (msg == "E3") translatedMsg = "Erro de Sintaxe";
+      else if (msg == "E4") translatedMsg = "Preset Invalido";
+      else if (msg.startsWith("C0")) translatedMsg = "Salvo: Slot " + msg.substring(3, 4);
+      else if (msg.startsWith("BB") || msg.startsWith("BC")) translatedMsg = "FastAct. Exec";
+
+      Serial.println("-> " + translatedMsg);
+      currentMsg = translatedMsg;
+      scrollIndexBottom = 0;
+      updateLCD();
     }
   }
 }
 
+String getScrollText(String text, int index) {
+  if (text.length() <= 16) {
+    while (text.length() < 16) text += " ";
+    return text;
+  }
+  String padded = text + "    "; // 4 espaços de separação
+  int len = padded.length();
+  int idx = index % len;
+  String result = padded.substring(idx) + padded.substring(0, idx);
+  return result.substring(0, 16);
+}
+
 void updateLCD() {
-  lcd.setCursor(4, 0);
-  lcd.print("            "); // Limpa a área de input (12 espaços)
-  lcd.setCursor(4, 0);
-  lcd.print(inputBuffer);
+  // Linha 1: Fixo "Cmd:" (4 chars) + últimos 12 chars de inputBuffer
+  String dispTop = "Cmd:";
+  if (inputBuffer.length() <= 12) {
+    dispTop += inputBuffer;
+    while (dispTop.length() < 16) dispTop += " ";
+  } else {
+    dispTop += inputBuffer.substring(inputBuffer.length() - 12);
+  }
+
+  // Linha 2: Animação Marquee apenas para mensagens longas (>16)
+  String dispBot = getScrollText(currentMsg, scrollIndexBottom);
+  
+  lcd.setCursor(0, 0);
+  lcd.print(dispTop);
+  lcd.setCursor(0, 1);
+  lcd.print(dispBot);
+}
+
+void handleScroll() {
+  if (millis() - lastScrollTime >= 400) {
+    lastScrollTime = millis();
+    
+    if (currentMsg.length() > 16) {
+      scrollIndexBottom++;
+      updateLCD();
+    }
+  }
 }
 
 void updateTM1638() {
@@ -187,6 +211,7 @@ void updateTM1638() {
 
 void loop() {
   processIncomingMessage();
+  handleScroll();
 
   char key = keypad.getKey();
 
