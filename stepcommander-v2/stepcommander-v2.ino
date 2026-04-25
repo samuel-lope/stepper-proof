@@ -33,7 +33,7 @@
  * - '* + #'  -> ENTER        | '* + C'  -> Clear
  * - '* + D'  -> Backspace    | '* + A'  -> Inserir '-'
  * - '* + B'  -> Toggle Fast Act Mode
- * - '* + 0-9'-> Salvar comando no Slot EEPROM
+ * - '* + A + C + [0-9]' -> Salvar comando no Slot EEPROM
  * - No modo Fast Act: [0-9] executa o Slot correspondente
  * =================================================================================
  */
@@ -110,6 +110,10 @@ uint16_t scrollIndexBottom = 0; // [OPT-2] uint16_t: evita overflow a cada ~100s
 
 // [OPT-3] Controle de timeout de mensagem de status
 unsigned long lastMsgTime = 0;
+
+// Estado do combo *+A+C+[digit] para salvar no EEPROM
+// 0=idle, 1=recebeu *+A, 2=recebeu *+A+C (aguarda dígito)
+uint8_t saveComboState = 0;
 
 // Buffer estático para recepção Serial não-bloqueante
 char rxBuffer[SERIAL_BUF_SIZE];
@@ -271,6 +275,55 @@ void processKeypad()
         return;
     }
 
+    // --- Combo *+A+C+[digit] para salvar no EEPROM ---
+    if (saveComboState == 1)
+    {
+        // Recebeu *+A, agora espera 'C' para continuar combo
+        if (key == 'C')
+        {
+            saveComboState = 2; // Avança: aguarda dígito
+            systemFlags.lcdNeedsUpdate = 1;
+            return;
+        }
+        else
+        {
+            // Combo cancelado — aplica ação original do *+A (inserir '-')
+            saveComboState = 0;
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = '-';
+                inputBuffer[inputLen] = '\0';
+            }
+            // Continua processando a tecla atual normalmente (cai no fluxo abaixo)
+        }
+    }
+    else if (saveComboState == 2)
+    {
+        // Recebeu *+A+C, agora espera dígito para salvar
+        if (isDigit(key))
+        {
+            saveComboState = 0;
+            if (inputLen > 0)
+            {
+                saveSlot(key - '0');
+                inputLen = 0;
+                inputBuffer[0] = '\0';
+            }
+            else
+            {
+                setStatusMsg("Buffer Vazio!");
+            }
+            systemFlags.lcdNeedsUpdate = 1;
+            return;
+        }
+        else
+        {
+            // Combo cancelado — não há ação pendente a replay
+            saveComboState = 0;
+            // Continua processando a tecla atual normalmente
+        }
+    }
+
     // Verifica se o prefixo '*' está ativo (buffer termina com ':')
     bool hasStar = (inputLen > 0 && inputBuffer[inputLen - 1] == ':');
 
@@ -308,17 +361,6 @@ void processKeypad()
             systemFlags.isFastActMode = !systemFlags.isFastActMode;
             setStatusMsg(systemFlags.isFastActMode ? "FAST ACT ON" : "FAST ACT OFF");
         }
-        else if (isDigit(key))
-        {
-            // [* + 0-9] = Salvar buffer no Slot EEPROM correspondente
-            inputBuffer[--inputLen] = '\0';
-            if (inputLen > 0)
-            {
-                saveSlot(key - '0');
-                inputLen = 0;
-                inputBuffer[0] = '\0';
-            }
-        }
         else if (key == 'C')
         {
             // [* + C] = Clear
@@ -338,8 +380,10 @@ void processKeypad()
         }
         else if (key == 'A')
         {
-            // [* + A] = Substituir ':' por '-'
-            inputBuffer[inputLen - 1] = '-';
+            // [* + A] = Inicia combo de salvar (*+A+C+[digit])
+            // Remove o ':' do buffer e entra no estado de combo
+            inputBuffer[--inputLen] = '\0';
+            saveComboState = 1;
         }
         else if (key == '*')
         {
@@ -347,6 +391,15 @@ void processKeypad()
             if (inputLen < MAX_INPUT_LEN)
             {
                 inputBuffer[inputLen++] = ':';
+                inputBuffer[inputLen] = '\0';
+            }
+        }
+        else if (isDigit(key))
+        {
+            // Dígito após '*': mantém ':' e adiciona o dígito
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = key;
                 inputBuffer[inputLen] = '\0';
             }
         }
