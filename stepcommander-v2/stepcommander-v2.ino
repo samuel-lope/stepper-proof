@@ -239,7 +239,7 @@ void parseH8PMessage(const char *msg)
              strncmp(msg, "BC", 2) == 0)
         strcpy_P(currentMsg, PSTR("FastAct. Exec"));
     else if (strncmp(msg, "C0", 2) == 0)
-        snprintf_P(currentMsg, sizeof(currentMsg), PSTR("Salvo: Slot %c"), msg[3]);
+        snprintf_P(currentMsg, sizeof(currentMsg), PSTR("Fila: Linha %c"), msg[3]);
     else
     {
         strncpy(currentMsg, msg, MSG_MAX_LEN);

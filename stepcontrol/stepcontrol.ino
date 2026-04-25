@@ -472,7 +472,7 @@ void constroiEAdicionaComando(ComandoMotor cmd, bool cmd_valido) {
         enviarRespostaComando(0xC0, qtd_comandos_na_fila, cmd);
         
         qtd_comandos_na_fila++;
-        broadcastParam(0xC1, qtd_comandos_na_fila);
+        Serial.print(0xC1, HEX); Serial.print(':'); Serial.println(qtd_comandos_na_fila);
     } else {
         enviarRespostaHex(0xE3); // Erro de sintaxe
     }
@@ -705,7 +705,7 @@ bool carregarProximoComando(uint8_t motor) {
             *rep_ptr = cmd.repeat;
             
             // Telemetria: id customizado p/ diferenciar slots (Ex: M1 linha 2 -> D0:102, M2 linha 3 -> D0:203)
-            broadcastParam(0xD0, (motor * 100) + *indice_ptr); 
+            Serial.print(0xD0, HEX); Serial.print(':'); Serial.println((motor * 100) + *indice_ptr); 
             
             if (motor == 1) moverMotor1(cmd.step, cmd.vel, cmd.dir);
             else            moverMotor2(cmd.step, cmd.vel, cmd.dir);
