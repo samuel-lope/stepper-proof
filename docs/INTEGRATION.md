@@ -1,26 +1,41 @@
 # Guia de Integração: Web Interface <> Firmware AVR
 
-Este documento detalha o protocolo de comunicação e a arquitetura de integração entre a interface HTML5 (frontend) e o firmware ATmega328P (backend/hardware).
+Este documento detalha o protocolo de comunicação e a arquitetura de integração entre a interface HTML5 (frontend), o firmware ATmega328P (backend/hardware) e o módulo periférico StepCommander.
 
 ---
 
 ## 🏗️ Arquitetura de Comunicação
 
-O projeto usa a **Web Serial API** para estabelecer um túnel direto navegador–microcontrolador via USB. Alternativamente, a comunicação pode ser originada localmente pelo módulo periférico **StepCommander**.
+O projeto possui **duas interfaces de entrada simultâneas** para o firmware principal:
 
-- **Camada de Transporte (Web)**: Serial RS-232 over USB (Hardware Serial, RX/TX nos pinos 0 e 1 do Arduino).
-- **Camada de Transporte (StepCommander)**: Conexão via `SoftwareSerial` originada nos pinos 10 e 11 do Commander para o Hardware Serial do controlador principal.
-- **Configuração**: **9600 bps**, 8-N-1.
+| Canal | Meio Físico | Pinos | Uso |
+|:---|:---|:---|:---|
+| **USB Serial** | Hardware Serial (UART) | RX0/TX1 | Interface Web (Chrome/Edge via Web Serial API) |
+| **SoftwareSerial** | Bit-banging via biblioteca | D10 (RX) / D11 (TX) | StepCommander V2 (Teclado + LCD) |
+
+- **Configuração**: **9600 bps**, 8-N-1 (ambas as portas).
 - **Protocolo**: Texto em pares `Chave:Valor` hexadecimais, separados por vírgula, terminados por `\n`.
+
+### Detecção de Origem e Roteamento
+
+O firmware identifica automaticamente qual porta serial originou cada comando (`SRC_USB` ou `SRC_COMMANDER`) e roteia as respostas de acordo:
+
+- **Respostas diretas** (confirmações de ação): Enviadas somente para quem enviou o comando.
+- **Eventos globais** (mudanças de estado): Broadcast para ambas as interfaces.
+- **Telemetria de alta frequência** (`D0`, `C1`): Somente USB Serial.
+
+> [!WARNING]
+> **SoftwareSerial e Interrupts**: A biblioteca `SoftwareSerial` desabilita interrupts globais durante a transmissão de cada byte (~1ms a 9600 baud). Enviar dados de alta frequência (como `D0`, que dispara a cada ciclo de passos) via SoftwareSerial causa stuttering nos pulsos do Timer1. Por isso, `D0` e `C1` são exclusivos da USB Serial.
 
 ---
 
 ## 🤝 Handshake e Inicialização
 
-Ao ser energizado ou resetado, o Arduino emite um sinal de prontidão:
+Ao ser energizado ou resetado, o Arduino emite um sinal de prontidão via **broadcast** (ambas as portas):
 
-1. **Arduino → Web**: Envia `A0`.
-2. **Web → Usuário**: A interface detecta o código e exibe "Sistema Inicializado. Timer1 Dual-Channel sincronizado."
+1. **Arduino → Web + Commander**: Envia `A0`.
+2. **Web**: Exibe "Sistema Inicializado. Timer1 Dual-Channel sincronizado."
+3. **Commander**: LCD exibe "Sis Inicializado".
 
 ---
 
@@ -28,55 +43,55 @@ Ao ser energizado ou resetado, o Arduino emite um sinal de prontidão:
 
 Para economizar SRAM (2KB disponíveis no ATmega328P), o sistema não processa strings longas. Usa chaves de 1 byte (2 chars hexadecimais).
 
-### 📤 Protocolo de Saída (Web → Arduino)
-
-Comandos injetados via Serial para controle de fluxo e estado.
+### 📤 Comandos de Controle (Enviados → Arduino)
 
 #### `01` - RUN
 Inicia a execução simultânea das filas de motor (`m1_executando = true`, `m2_executando = true`).
-- **Resposta**: `B0` (Sucesso) ou `E1` (Fila Vazia).
+- **Resposta**: `B0` (Broadcast) ou `E0`/`E1` (Somente para quem enviou).
 
 #### `02` - STOP (Emergência)
-Interrompe instantaneamente todos os pulsos via Timer1 de forma atômica (`cli`). Limpa a SRAM e EEPROM buffers.
-- **Resposta**: `B1` (Sucesso).
+Interrompe instantaneamente todos os pulsos via Timer1 de forma atômica (`cli`). Limpa a SRAM.
+- **Resposta**: `B1` + `C1:0` (Broadcast).
 
 #### `03:X` - Loop Mode
 Define se a fila deve recomeçar do zero após atingir o final.
 - `03:1`: Ativa Loop Infinito.
 - `03:0`: Desativa Loop Infinito.
-- **Resposta**: `B4` (Ativo) ou `B6` (Inativo).
+- **Resposta**: `B4` ou `B6` (Broadcast).
 
 #### `04:X` - Global Pause
 Define um atraso em milissegundos injetado entre comandos da fila.
 - **Parâmetro**: `X` = milissegundos.
-- **Resposta**: `B2:X`.
+- **Resposta**: `B2:X` (Broadcast).
 
 #### `16:X` / `17:X` - Driver Control
 Habilita ou desabilita fisicamente o estágio de potência do driver TB6600 (EN Pin).
 - `16:X`: Habilita Motor X (EN → LOW).
 - `17:X`: Desabilita Motor X (EN → HIGH).
-- **Resposta**: `B7:X` ou `B8:X`.
+- **Resposta**: `B7:X` ou `B8:X` (Broadcast).
 
 #### `18:X` - Fast Action (EEPROM)
 Executa o preset armazenado no slot `X` (0-9) da EEPROM.
-- **Resposta**: `BB:X,...` (Sucesso) ou `E4` (Slot Inválido).
+- **Resposta (USB)**: `BB:X,10:step,11:vel,...` | **Resposta (Commander)**: `BB:X`
+- **Erro**: `E4` (Slot Inválido) ou `E0` (Motor em execução).
 
 #### `19:X,...` - Write Preset
 Grava uma linha completa de comando no slot `X` da EEPROM.
 - **Sintaxe**: `19:X,10:step,11:vel,12:dir,13:repeat,14:pause,15:motor`
-- **Resposta**: `B9:X,...`.
+- **Resposta (USB)**: `B9:X,10:step,...` | **Resposta (Commander)**: `B9:X`
 
 #### `1A:X` - Read Preset
 Solicita o dump de dados do slot `X` da EEPROM.
-- **Resposta**: `BA:X,...`.
+- **Resposta (USB)**: `BA:X,10:step,...` | **Resposta (Commander)**: `BA:X`
 
 #### `1B:X:Y` - Scrubber / Jog
 Executa preset `X` com `Y` repetições forçadas. Se `Y` for negativo, inverte a direção original.
-- **Resposta**: `BC:X,...`.
+- **Resposta (USB)**: `BC:X,10:step,...` | **Resposta (Commander)**: `BC:X`
 
 #### `1C:X:Y` - Save SRAM to EEPROM
 Salva a linha de comando armazenada no slot SRAM `Y` (0-19) diretamente no slot EEPROM `X` (0-9).
-- **Resposta**: `B9:X,...` (Confirmação com a linha copiada) ou `E1` (SRAM vazia/inválida).
+- **Resposta (USB)**: `B9:X,10:step,...` | **Resposta (Commander)**: `B9:X`
+- **Erro**: `E1` (SRAM vazia/inválida) ou `E4` (Slot inválido).
 
 ### 📥 Parâmetros de Motor (Data Injection)
 
@@ -99,48 +114,54 @@ Enviados como string de campos hexadecimais separados por vírgula.
 
 ---
 
-## 📡 Respostas do Arduino (Arduino → Web)
+## 📡 Respostas do Arduino (Arduino → Interfaces)
 
-### Respostas de Status (Toasts)
+### Respostas de Status
 
-| Código | Nome | Descrição |
-| :--- | :--- | :--- |
-| `A0` | **Init OK** | Sistema inicializado. Timer1 Dual-Channel pronto. |
-| `B0` | **Run Started** | Fila iniciada. Pulsos sendo despachados para M1 e/ou M2. |
-| `B1` | **Emergency Stop** | Ambos os motores parados. Fila e RAM limpas. |
-| `B2:X` | **Global Pause Set** | Pausa global definida para X ms. |
-| `B4` | **Repeat ON** | Loop infinito ativado (`03:1` recebido). |
-| `B5` | **Queue Done** | Todos os motores concluíram a fila. Standby. |
-| `B6` | **Repeat OFF** | Loop infinito desativado (`03:0` recebido). |
-| `E0` | **Already Running** | Operação rejeitada — motores em execução ativa. |
-| `E1` | **Queue Empty** | RUN rejeitado — fila vazia / ou slot SRAM inválido ao copiar para EEPROM. |
-| `E2` | **Queue Overflow** | Limite de 20 slots atingido na SRAM. Use STOP para limpar. |
-| `E3` | **Syntax Error** | Parâmetros obrigatórios (`10` ou `11`) ausentes no pacote. |
-| `B7:X` | **Motor Enabled** | Driver do Motor X habilitado (EN → LOW). Torque de retenção ativo. |
-| `B8:X` | **Motor Disabled** | Driver do Motor X desabilitado (EN → HIGH). Eixo livre. |
-| `B9:X,...` | **Preset Saved** | Confirmação da gravação na EEPROM. Retorna a linha gravada. |
-| `BA:X,...` | **Preset Data** | Resposta do comando de leitura `1A`. Retorna string do respectivo slot. |
-| `BB:X,...` | **Preset Executed** | Resposta do `18`. Fast Action executado no slot X. |
-| `BC:X,...` | **Rep Override** | Resposta do `1B`. Fast Action executado no slot X com repetições substituídas. |
-| `E4` | **Invalid Slot** | Rejeição: O slot EEPROM requisitado (X) é maior que o configurado (Max: 9). |
+| Código | Nome | Roteamento | Descrição |
+|:---|:---|:---|:---|
+| `A0` | **Init OK** | Broadcast | Sistema inicializado. Timer1 Dual-Channel pronto. |
+| `B0` | **Run Started** | Broadcast | Fila iniciada. Pulsos sendo despachados para M1 e/ou M2. |
+| `B1` | **Emergency Stop** | Broadcast | Ambos os motores parados. Fila e RAM limpas. |
+| `B2:X` | **Global Pause Set** | Broadcast | Pausa global definida para X ms. |
+| `B4` | **Repeat ON** | Broadcast | Loop infinito ativado (`03:1` recebido). |
+| `B5` | **Queue Done** | Broadcast | Todos os motores concluíram a fila. Standby. |
+| `B6` | **Repeat OFF** | Broadcast | Loop infinito desativado (`03:0` recebido). |
+| `B7:X` | **Motor Enabled** | Broadcast | Driver do Motor X habilitado (EN → LOW). |
+| `B8:X` | **Motor Disabled** | Broadcast | Driver do Motor X desabilitado (EN → HIGH). |
+| `E0` | **Already Running** | Somente Origem | Operação rejeitada — motores em execução ativa. |
+| `E1` | **Queue Empty** | Somente Origem | Fila vazia ou slot SRAM inválido. |
+| `E2` | **Queue Overflow** | Somente Origem | Limite de 20 slots atingido na SRAM. |
+| `E3` | **Syntax Error** | Somente Origem | Parâmetros obrigatórios ausentes no pacote. |
+| `E4` | **Invalid Slot** | Somente Origem | Slot EEPROM fora do intervalo (0-9). |
 
-### 🛰️ Telemetria Passiva (H8P V2)
+### Respostas de Dados (Formato varia por interface)
 
-Emitidos continuamente pelo Arduino para atualizar o painel "Live Telemetry" sem gerar toasts.
+| Código | Nome | USB Serial | Commander |
+|:---|:---|:---|:---|
+| `B9:X` | **Preset Saved** | `B9:X,10:step,...` (completo) | `B9:X` (otimizado) |
+| `BA:X` | **Preset Data** | `BA:X,10:step,...` (completo) | `BA:X` (otimizado) |
+| `BB:X` | **Preset Executed** | `BB:X,10:step,...` (completo) | `BB:X` (otimizado) |
+| `BC:X` | **Rep Override** | `BC:X,10:step,...` (completo) | `BC:X` (otimizado) |
+| `C0:X` | **Slot Enqueued** | `C0:X,10:step,...` (completo) | `C0:X` (otimizado) |
+
+### 🛰️ Telemetria de Alta Frequência (USB Serial Only)
+
+Emitidos continuamente pelo Arduino para atualizar o painel "Live Telemetry". **Não são enviados ao Commander** para evitar bloqueio de interrupts.
 
 | Código | Nome | Formato | Descrição |
-| :--- | :--- | :--- | :--- |
-| `C0:N,...` | **Slot Saved** | `C0:idx,10:steps,11:vel,12:dir,15:motor` | Confirmação de que a linha N foi gravada na RAM com seus parâmetros. |
+|:---|:---|:---|:---|
 | `C1:X` | **Queue Size** | `C1:N` | Quantidade atual de slots ocupados na SRAM (0–20). |
-| `D0:X` | **Active Line** | `D0:MNN` | Linha NN do Motor M foi disparada. Ex: `D0:101` = Motor 1, slot 1. `D0:203` = Motor 2, slot 3. |
-| `B3:X` | **Hardware Pause** | `B3:ms` | Pausa em andamento de X ms entre linhas. |
+| `D0:X` | **Active Line** | `D0:MNN` | Linha NN do Motor M foi disparada. Ex: `D0:101` = Motor 1, slot 1. |
 
 > [!NOTE]
-> **Formato de `D0`**: O valor codifica motor e slot em um único inteiro. `floor(X / 100)` extrai o motor; `X % 100` extrai o índice do slot. A interface web já faz essa decodificação automaticamente.
+> **Formato de `D0`**: O valor codifica motor e slot em um único inteiro. `floor(X / 100)` extrai o motor; `X % 100` extrai o índice do slot.
 
 ---
 
 ## 🔄 Fluxo de Dados — Ciclo Completo
+
+### Via Web Interface (USB Serial)
 
 ```mermaid
 sequenceDiagram
@@ -149,11 +170,11 @@ sequenceDiagram
 
     Note over UI,HW: 1. Construção da Fila
     UI->>HW: "10:1600,11:500,12:1,15:1\n" (Motor 1)
-    HW-->>UI: "C0:0,10:1600,11:500,12:1,15:1" (Slot 0 gravado)
+    HW-->>UI: "C0:0,10:1600,11:500,12:1,15:1" (Slot 0 enfileirado)
     HW-->>UI: "C1:1" (1 slot na RAM)
 
     UI->>HW: "10:800,11:300,15:2\n" (Motor 2)
-    HW-->>UI: "C0:1,10:800,11:300,15:2" (Slot 1 gravado)
+    HW-->>UI: "C0:1,10:800,11:300,15:2" (Slot 1 enfileirado)
     HW-->>UI: "C1:2" (2 slots na RAM)
 
     Note over UI,HW: 2. Execução
@@ -162,6 +183,24 @@ sequenceDiagram
     HW-->>UI: "D0:100" (M1 executando slot 0)
     HW-->>UI: "D0:201" (M2 executando slot 1)
     HW-->>UI: "B5" (Ambos concluídos)
+```
+
+### Via StepCommander (SoftwareSerial)
+
+```mermaid
+sequenceDiagram
+    participant CMD as Commander (LCD)
+    participant HW as Arduino (AVR)
+
+    Note over CMD,HW: 1. Envio de Comando
+    CMD->>HW: "10:1600,11:250,15:1\n"
+    HW-->>CMD: "C0:0" (Otimizado — LCD exibe "Fila: Linha 0")
+
+    Note over CMD,HW: 2. Execução
+    CMD->>HW: "01\n"
+    HW-->>CMD: "B0" (LCD exibe "Iniciando Fila")
+    Note right of HW: D0/C1 NÃO são enviados ao Commander
+    HW-->>CMD: "B5" (LCD exibe "Fila Executada")
 ```
 
 ---
@@ -185,8 +224,6 @@ Quando o usuário clica em **EXECUTE ALL**, a interface injeta o estado atual do
 1. UI envia `03:1` (se toggle ON) ou `03:0` (se toggle OFF).
 2. UI envia `01` — inicia a execução com o modo de loop já definido no MCU.
 
-Isso garante que o MCU sempre receba o estado correto de loop imediatamente antes da execução, independente de comandos anteriores.
-
 ### Carregar Sequência da Biblioteca
 
 Ao carregar uma sequência salva do `localStorage`, a interface executa limpeza automática antes de injetar:
@@ -194,8 +231,6 @@ Ao carregar uma sequência salva do `localStorage`, a interface executa limpeza 
 1. UI envia `02` — limpa SRAM do MCU (STOP atômico).
 2. `currentQueue = []` — reseta a fila local JS.
 3. UI envia cada comando da sequência com delay de 150ms entre eles.
-
-Isso previne duplicidade ou acúmulo de linhas residuais na SRAM.
 
 ### Enable/Disable Motor (Controle do Driver)
 
@@ -230,7 +265,7 @@ Pipeline M2:
 
 Cleanup Global (portão fila_iniciada):
   fila_iniciada && !m1_executando && !m2_executando && qtd > 0
-    → qtd = 0, fila_iniciada = false → emite B5
+    → qtd = 0, fila_iniciada = false → emite B5 (Broadcast)
 ```
 
 ### Flag `fila_iniciada`

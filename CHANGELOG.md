@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0] - 2026-04-25
+### Added
+- **SoftwareSerial no Firmware Principal**: `stepcontrol.ino` agora escuta comandos em duas portas simultâneas — USB Serial (Web) e SoftwareSerial D10/D11 (Commander).
+- **Roteamento Inteligente de Respostas**: O firmware detecta automaticamente a origem de cada comando (`SRC_USB` ou `SRC_COMMANDER`) e roteia respostas de forma diferenciada:
+  - **USB**: Dados completos (`C0:0,10:1600,11:250,...`).
+  - **Commander**: Formato otimizado (`C0:0`), compatível com o display LCD 16x2.
+- **Broadcast de Eventos Globais**: Mudanças de estado (`B0`, `B1`, `B4`, `B5`, `B6`, `B7`, `B8`) são enviadas para ambas as interfaces simultaneamente.
+- **Funções de Roteamento**: `enviarRespostaHex()`, `enviarRespostaParam()`, `enviarRespostaComando()`, `broadcastHex()`, `broadcastParam()` substituem todos os `Serial.print` diretos.
+
+### Fixed
+- **Motor Stuttering com SoftwareSerial**: Telemetria de alta frequência (`D0`, `C1`) agora é exclusiva da USB Serial. `SoftwareSerial.write()` desabilita interrupts globais durante TX (~1ms/byte a 9600 baud), o que causava bloqueio do `TIMER1_COMPA/B_vect` e stuttering visível nos pulsos dos motores durante operação contínua com `repeat=0`.
+- **Mensagem LCD incorreta para C0**: O Commander exibia "Salvo: Slot X" ao receber `C0` (enfileiramento na SRAM), sugerindo falsamente uma gravação em EEPROM. Corrigido para "Fila: Linha X".
+
+### Changed
+- **Documentação Completa**: README, INTEGRATION.md, STEPCOMMANDER.md e llms.txt reescritos com diagramas de arquitetura dual-interface, tabelas de roteamento de respostas, e referência completa de feedback LCD.
+
 ## [1.6.0] - 2026-04-22
 ### Added
 - **StepCommander**: Nova interface de hardware periférica rodando em Atmega328P.
