@@ -58,6 +58,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <EEPROM.h>
+#include <SoftwareSerial.h>
 
 // --- Definição de Pinos (M1 e M2) ---
 // Motor 1
@@ -99,9 +100,56 @@ bool repetir_todas_linhas = false;
 bool fila_iniciada = false; // Portão: só permite limpeza após RUN
 uint32_t global_pause_ms = 0;
 
-// Variáveis da Serial
-char buffer_serial[MAX_BUFFER_SERIAL];
-uint8_t indice_buffer = 0;
+// Variáveis da Serial e Roteamento
+enum CommandSource { SRC_USB, SRC_COMMANDER };
+CommandSource current_src = SRC_USB;
+
+SoftwareSerial cmdSerial(10, 11); // RX, TX
+
+char buffer_serial_usb[MAX_BUFFER_SERIAL];
+uint8_t indice_buffer_usb = 0;
+
+char buffer_serial_cmd[MAX_BUFFER_SERIAL];
+uint8_t indice_buffer_cmd = 0;
+
+// Funções de roteamento de respostas
+void enviarRespostaHex(uint8_t codigo) {
+    if (current_src == SRC_USB) Serial.println(codigo, HEX);
+    else cmdSerial.println(codigo, HEX);
+}
+
+void enviarRespostaParam(uint8_t codigo, uint32_t parametro) {
+    if (current_src == SRC_USB) {
+        Serial.print(codigo, HEX); Serial.print(':'); Serial.println(parametro);
+    } else {
+        cmdSerial.print(codigo, HEX); cmdSerial.print(':'); cmdSerial.println(parametro);
+    }
+}
+
+void enviarRespostaComando(uint8_t codigo, uint8_t id_ou_slot, ComandoMotor cmd) {
+    if (current_src == SRC_USB) {
+        Serial.print(codigo, HEX); Serial.print(':'); Serial.print(id_ou_slot);
+        Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(cmd.step);
+        Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(cmd.vel);
+        Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(cmd.dir);
+        Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(cmd.repeat);
+        Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(cmd.pause_ms);
+        Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(cmd.motor_id);
+    } else {
+        // Otimizado para LCD / Commander (só envia o código e o ID/Slot)
+        cmdSerial.print(codigo, HEX); cmdSerial.print(':'); cmdSerial.println(id_ou_slot);
+    }
+}
+
+void broadcastHex(uint8_t codigo) {
+    Serial.println(codigo, HEX);
+    cmdSerial.println(codigo, HEX);
+}
+
+void broadcastParam(uint8_t codigo, uint32_t parametro) {
+    Serial.print(codigo, HEX); Serial.print(':'); Serial.println(parametro);
+    cmdSerial.print(codigo, HEX); cmdSerial.print(':'); cmdSerial.println(parametro);
+}
 
 // ==========================================
 // ESTADO DO MOTOR 1
@@ -165,7 +213,8 @@ void setup() {
     inicializarPresetsEEPROM();
 
     Serial.begin(9600);
-    Serial.println(0xA0, HEX); 
+    cmdSerial.begin(9600);
+    broadcastHex(0xA0); 
 }
 
 // ---------------------------------------------------------
@@ -345,7 +394,7 @@ ComandoMotor lerPresetEEPROM(uint8_t idx) {
 
 void executarFastAction(uint8_t idx) {
     if (m1_executando || m2_executando) {
-        Serial.println(0xE0, HEX); // Motor já em execução
+        enviarRespostaHex(0xE0); // Motor já em execução
         return;
     }
 
@@ -367,20 +416,13 @@ void executarFastAction(uint8_t idx) {
 
     if (m1_executando || m2_executando) {
         fila_iniciada = true;
-        // Resposta: BB:idx,10:step,11:vel,12:dir,13:repeat,14:pause,15:motor
-        Serial.print(0xBB, HEX); Serial.print(':'); Serial.print(idx);
-        Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(cmd.step);
-        Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(cmd.vel);
-        Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(cmd.dir);
-        Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(cmd.repeat);
-        Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(cmd.pause_ms);
-        Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(cmd.motor_id);
+        enviarRespostaComando(0xBB, idx, cmd);
     }
 }
 
 void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed) {
     if (m1_executando || m2_executando) {
-        Serial.println(0xE0, HEX); // Motor já em execução
+        enviarRespostaHex(0xE0); // Motor já em execução
         return;
     }
 
@@ -410,14 +452,7 @@ void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed) {
 
     if (m1_executando || m2_executando) {
         fila_iniciada = true;
-        // Resposta: BC:idx,10:step,11:vel,12:dir,13:repeat,14:pause,15:motor
-        Serial.print(0xBC, HEX); Serial.print(':'); Serial.print(idx);
-        Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(cmd.step);
-        Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(cmd.vel);
-        Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(cmd.dir);
-        Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(cmd.repeat);
-        Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(cmd.pause_ms);
-        Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(cmd.motor_id);
+        enviarRespostaComando(0xBC, idx, cmd);
     }
 }
 
@@ -427,25 +462,19 @@ void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed) {
 
 void constroiEAdicionaComando(ComandoMotor cmd, bool cmd_valido) {
     if (qtd_comandos_na_fila >= MAX_FILA) {
-        Serial.println(0xE2, HEX); // Fila Cheia
+        enviarRespostaHex(0xE2); // Fila Cheia
         return;
     }
 
     if (cmd_valido && cmd.step > 0 && cmd.vel >= 50) {
         fila_comandos[qtd_comandos_na_fila] = cmd;
         
-        Serial.print(0xC0, HEX); Serial.print(':'); Serial.print(qtd_comandos_na_fila);
-        Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(cmd.step);
-        Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(cmd.vel);
-        Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(cmd.dir);
-        Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(cmd.repeat);
-        Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(cmd.pause_ms);
-        Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(cmd.motor_id);
+        enviarRespostaComando(0xC0, qtd_comandos_na_fila, cmd);
         
         qtd_comandos_na_fila++;
-        Serial.print(0xC1, HEX); Serial.print(':'); Serial.println(qtd_comandos_na_fila);
+        broadcastParam(0xC1, qtd_comandos_na_fila);
     } else {
-        Serial.println(0xE3, HEX); // Erro de sintaxe
+        enviarRespostaHex(0xE3); // Erro de sintaxe
     }
 }
 
@@ -485,14 +514,14 @@ void interpretarComando(char* linha) {
 
                         if (m1_executando || m2_executando) {
                             fila_iniciada = true;
-                            Serial.println(0xB0, HEX);
+                            broadcastHex(0xB0);
                         } else {
                             qtd_comandos_na_fila = 0; // Prevenção se a busca falhar
                         }
                     } else if (m1_executando || m2_executando) {
-                        Serial.println(0xE0, HEX); // Já rodando
+                        enviarRespostaHex(0xE0); // Já rodando
                     } else {
-                        Serial.println(0xE1, HEX); // Vazio
+                        enviarRespostaHex(0xE1); // Vazio
                     }
                     return;
                 }
@@ -512,8 +541,8 @@ void interpretarComando(char* linha) {
                     qtd_comandos_na_fila = 0;
                     sei();
                     
-                    Serial.println(0xB1, HEX);
-                    Serial.print(0xC1, HEX); Serial.print(':'); Serial.println(0);
+                    broadcastHex(0xB1);
+                    broadcastParam(0xC1, 0);
                     return;
                 }
                 // 0x03 agora requer valor (03:0 ou 03:1), tratado abaixo com os parametros
@@ -522,12 +551,12 @@ void interpretarComando(char* linha) {
                 
                 if (chave == 0x03) { // repeatAll booleano (03:1 = ON, 03:0 = OFF)
                     repetir_todas_linhas = (valor == 1);
-                    Serial.println(repetir_todas_linhas ? 0xB4 : 0xB6, HEX);
+                    broadcastHex(repetir_todas_linhas ? 0xB4 : 0xB6);
                     return;
                 }
                 else if (chave == 0x04) {
                     global_pause_ms = valor;
-                    Serial.print(0xB2, HEX); Serial.print(':'); Serial.println(global_pause_ms);
+                    broadcastParam(0xB2, global_pause_ms);
                     return;
                 }
                 else if (chave == 0x10) { cmd.step = valor; cmd_valido = true; eh_parametro = true; }
@@ -540,25 +569,23 @@ void interpretarComando(char* linha) {
                     if (valor == 1)      { PORTD &= ~(1 << M1_EN_PIN); }
                     else if (valor == 2) { PORTD &= ~(1 << M2_EN_PIN); }
                     else { return; } // Ignora IDs inválidos
-                    Serial.print(0xB7, HEX); Serial.print(':'); Serial.println(valor);
+                    broadcastParam(0xB7, valor);
                     return;
                 }
                 else if (chave == 0x17) { // disableMotor (EN = HIGH)
                     if (valor == 1)      { PORTD |= (1 << M1_EN_PIN); }
                     else if (valor == 2) { PORTD |= (1 << M2_EN_PIN); }
                     else { return; } // Ignora IDs inválidos
-                    Serial.print(0xB8, HEX); Serial.print(':'); Serial.println(valor);
+                    broadcastParam(0xB8, valor);
                     return;
                 }
                 else if (chave == 0x18) { // fastAction — executa preset EEPROM
-                    if (valor > 9) { Serial.println(0xE4, HEX); return; }
+                    if (valor > 9) { enviarRespostaHex(0xE4); return; }
                     executarFastAction((uint8_t)valor);
                     return;
                 }
                 else if (chave == 0x19) { // writePreset — grava preset na EEPROM
-                    // Sintaxe: 19:idx,10:step,11:vel,12:dir,13:repeat,14:pause,15:motor
-                    // O valor aqui é o índice do preset. Os parâmetros vêm nos tokens seguintes.
-                    if (valor > 9) { Serial.println(0xE4, HEX); return; }
+                    if (valor > 9) { enviarRespostaHex(0xE4); return; }
                     uint8_t preset_idx = (uint8_t)valor;
                     ComandoMotor preset_cmd = {0, 0, 0, 1, 0, 1};
                     bool preset_valido = false;
@@ -582,45 +609,33 @@ void interpretarComando(char* linha) {
                     if (preset_valido && preset_cmd.vel >= 50) {
                         if (preset_cmd.motor_id != 1 && preset_cmd.motor_id != 2) preset_cmd.motor_id = 1;
                         gravarPresetEEPROM(preset_idx, preset_cmd);
-                        Serial.print(0xB9, HEX); Serial.print(':'); Serial.print(preset_idx);
-                        Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(preset_cmd.step);
-                        Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(preset_cmd.vel);
-                        Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(preset_cmd.dir);
-                        Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(preset_cmd.repeat);
-                        Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(preset_cmd.pause_ms);
-                        Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(preset_cmd.motor_id);
+                        enviarRespostaComando(0xB9, preset_idx, preset_cmd);
                     } else {
-                        Serial.println(0xE3, HEX);
+                        enviarRespostaHex(0xE3);
                     }
                     return;
                 }
                 else if (chave == 0x1A) { // readPreset — lê preset da EEPROM
-                    if (valor > 9) { Serial.println(0xE4, HEX); return; }
+                    if (valor > 9) { enviarRespostaHex(0xE4); return; }
                     ComandoMotor p = lerPresetEEPROM((uint8_t)valor);
-                    Serial.print(0xBA, HEX); Serial.print(':'); Serial.print(valor);
-                    Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(p.step);
-                    Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(p.vel);
-                    Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(p.dir);
-                    Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(p.repeat);
-                    Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(p.pause_ms);
-                    Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(p.motor_id);
+                    enviarRespostaComando(0xBA, (uint8_t)valor, p);
                     return;
                 }
                 else if (chave == 0x1B) { // fastActionRep — executa preset EEPROM override de repetições (Ex: 1B:slot:rep)
                     char* rep_str = strtok_r(NULL, ":", &ponteiro_dois_pontos);
-                    if (valor > 9 || rep_str == NULL) { Serial.println(0xE4, HEX); return; }
+                    if (valor > 9 || rep_str == NULL) { enviarRespostaHex(0xE4); return; }
                     int32_t custom_rep_signed = atol(rep_str);
                     executarFastActionRepeat((uint8_t)valor, custom_rep_signed);
                     return;
                 }
                 else if (chave == 0x1C) { // saveToEEPROM - copia slot SRAM para EEPROM (Ex: 1C:eeprom_slot:sram_slot)
                     char* sram_str = strtok_r(NULL, ":", &ponteiro_dois_pontos);
-                    if (valor > 9) { Serial.println(0xE4, HEX); return; } // Verifica índice da EEPROM
-                    if (sram_str == NULL) { Serial.println(0xE3, HEX); return; } // Faltou parâmetro
+                    if (valor > 9) { enviarRespostaHex(0xE4); return; } // Verifica índice da EEPROM
+                    if (sram_str == NULL) { enviarRespostaHex(0xE3); return; } // Faltou parâmetro
                     
                     uint8_t sram_slot = (uint8_t)atol(sram_str);
                     if (sram_slot >= qtd_comandos_na_fila) {
-                        Serial.println(0xE1, HEX); // Slot SRAM não preenchido ou vazio
+                        enviarRespostaHex(0xE1); // Slot SRAM não preenchido ou vazio
                         return;
                     }
                     
@@ -628,13 +643,7 @@ void interpretarComando(char* linha) {
                     gravarPresetEEPROM((uint8_t)valor, preset_cmd);
                     
                     // Retorna confirmação (mesmo pacote do B9)
-                    Serial.print(0xB9, HEX); Serial.print(':'); Serial.print(valor);
-                    Serial.print(','); Serial.print(0x10, HEX); Serial.print(':'); Serial.print(preset_cmd.step);
-                    Serial.print(','); Serial.print(0x11, HEX); Serial.print(':'); Serial.print(preset_cmd.vel);
-                    Serial.print(','); Serial.print(0x12, HEX); Serial.print(':'); Serial.print(preset_cmd.dir);
-                    Serial.print(','); Serial.print(0x13, HEX); Serial.print(':'); Serial.print(preset_cmd.repeat);
-                    Serial.print(','); Serial.print(0x14, HEX); Serial.print(':'); Serial.print(preset_cmd.pause_ms);
-                    Serial.print(','); Serial.print(0x15, HEX); Serial.print(':'); Serial.println(preset_cmd.motor_id);
+                    enviarRespostaComando(0xB9, (uint8_t)valor, preset_cmd);
                     return;
                 }
             }
@@ -653,13 +662,28 @@ void processarSerial() {
     while (Serial.available() > 0) {
         char c = Serial.read();
         if (c == '\n' || c == '\r') {
-            if (indice_buffer > 0) {
-                buffer_serial[indice_buffer] = '\0';
-                interpretarComando(buffer_serial);
-                indice_buffer = 0;
+            if (indice_buffer_usb > 0) {
+                buffer_serial_usb[indice_buffer_usb] = '\0';
+                current_src = SRC_USB;
+                interpretarComando(buffer_serial_usb);
+                indice_buffer_usb = 0;
             }
-        } else if (indice_buffer < MAX_BUFFER_SERIAL - 1) {
-            buffer_serial[indice_buffer++] = c;
+        } else if (indice_buffer_usb < MAX_BUFFER_SERIAL - 1) {
+            buffer_serial_usb[indice_buffer_usb++] = c;
+        }
+    }
+
+    while (cmdSerial.available() > 0) {
+        char c = cmdSerial.read();
+        if (c == '\n' || c == '\r') {
+            if (indice_buffer_cmd > 0) {
+                buffer_serial_cmd[indice_buffer_cmd] = '\0';
+                current_src = SRC_COMMANDER;
+                interpretarComando(buffer_serial_cmd);
+                indice_buffer_cmd = 0;
+            }
+        } else if (indice_buffer_cmd < MAX_BUFFER_SERIAL - 1) {
+            buffer_serial_cmd[indice_buffer_cmd++] = c;
         }
     }
 }
@@ -681,7 +705,7 @@ bool carregarProximoComando(uint8_t motor) {
             *rep_ptr = cmd.repeat;
             
             // Telemetria: id customizado p/ diferenciar slots (Ex: M1 linha 2 -> D0:102, M2 linha 3 -> D0:203)
-            Serial.print(0xD0, HEX); Serial.print(':'); Serial.println((motor * 100) + *indice_ptr); 
+            broadcastParam(0xD0, (motor * 100) + *indice_ptr); 
             
             if (motor == 1) moverMotor1(cmd.step, cmd.vel, cmd.dir);
             else            moverMotor2(cmd.step, cmd.vel, cmd.dir);
@@ -787,7 +811,7 @@ void maquinaDeEstadosMotor() {
     if (fila_iniciada && !m1_executando && !m2_executando && qtd_comandos_na_fila > 0) {
         qtd_comandos_na_fila = 0;
         fila_iniciada = false;
-        Serial.println(0xB5, HEX);
+        broadcastHex(0xB5);
     }
 }
 
