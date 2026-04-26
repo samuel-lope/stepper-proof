@@ -104,7 +104,7 @@ uint32_t global_pause_ms = 0;
 enum CommandSource { SRC_USB, SRC_COMMANDER };
 CommandSource current_src = SRC_USB;
 
-SoftwareSerial cmdSerial(10, 11); // RX, TX
+SoftwareSerial cmdSerial(A0, A1); // RX, TX
 
 char buffer_serial_usb[MAX_BUFFER_SERIAL];
 uint8_t indice_buffer_usb = 0;
