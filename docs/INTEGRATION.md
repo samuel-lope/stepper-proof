@@ -11,7 +11,7 @@ O projeto possui **duas interfaces de entrada simultâneas** para o firmware pri
 | Canal | Meio Físico | Pinos | Uso |
 |:---|:---|:---|:---|
 | **USB Serial** | Hardware Serial (UART) | RX0/TX1 | Interface Web (Chrome/Edge via Web Serial API) |
-| **SoftwareSerial** | Bit-banging via biblioteca | D10 (RX) / D11 (TX) | StepCommander V2 (Teclado + LCD) |
+| **SoftwareSerial** | Bit-banging via biblioteca | A0 (RX) / A1 (TX) | StepCommander V2 (Teclado + LCD) |
 
 - **Configuração**: **9600 bps**, 8-N-1 (ambas as portas).
 - **Protocolo**: Texto em pares `Chave:Valor` hexadecimais, separados por vírgula, terminados por `\n`.

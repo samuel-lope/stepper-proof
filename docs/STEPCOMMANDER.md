@@ -28,7 +28,7 @@ Versão refatorada para alta performance e estabilidade em ambientes de produç�
 ### Configuração de Pinos
 - **Teclado 4x4:** Linhas (5, 4, 3, 2), Colunas (9, 8, 7, 6).
 - **LCD 16x2 I2C:** Endereço `0x27` (SDA=A4, SCL=A5).
-- **Comunicação:** SoftwareSerial (RX:10, TX:11) → Conecta ao D10/D11 da placa principal.
+- **Comunicação:** SoftwareSerial (RX:10, TX:11) → Conecta ao A0/A1 da placa principal.
 - **Opcional:** TM1638plus nos pinos A0 (STB), A1 (CLK), A2 (DIO).
 
 ### Conexão com a Placa Principal
@@ -36,8 +36,8 @@ Versão refatorada para alta performance e estabilidade em ambientes de produç�
 ```
  Commander (V2)         Placa Principal (stepcontrol)
  ┌──────────┐           ┌──────────────────┐
- │ TX (D11) │ ────────→ │ RX (D10)         │
- │ RX (D10) │ ←──────── │ TX (D11)         │
+ │ TX (D11) │ ────────→ │ RX (A0)          │
+ │ RX (D10) │ ←──────── │ TX (A1)          │
  │ GND      │ ────────→ │ GND              │
  └──────────┘           └──────────────────┘
 ```

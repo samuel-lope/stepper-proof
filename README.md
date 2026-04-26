@@ -8,7 +8,7 @@ Controle simultâneo e independente de alta precisão para dois motores de passo
 Conecte os motores ao MCU (Arduino Uno/Nano):
 - **Motor 1:** DIR(D2), PUL(D3), ENA(D6)
 - **Motor 2:** DIR(D4), PUL(D5), ENA(D7)
-- **SoftwareSerial (Commander):** RX(D10), TX(D11)
+- **SoftwareSerial (Commander):** RX(A0), TX(A1)
 
 *(Nota: Os drivers usam lógica de Enable invertida, LOW para ativar).*
 
@@ -37,7 +37,7 @@ O firmware principal (`stepcontrol.ino`) opera com **duas interfaces de entrada 
 ```
 ┌──────────────┐  USB Serial    ┌─────────────────────┐  SoftwareSerial  ┌──────────────────┐
 │  Web Browser  │ ──────────── │   stepcontrol.ino    │ ──────────────── │ stepcommander-v2 │
-│  (Chrome/Edge)│  (RX0/TX1)   │ (Placa Principal)    │   (D10/D11)      │ (Teclado + LCD)  │
+│  (Chrome/Edge)│  (RX0/TX1)   │ (Placa Principal)    │   (A0/A1)        │ (Teclado + LCD)  │
 └──────────────┘               └─────────────────────┘                   └──────────────────┘
 ```
 
@@ -73,7 +73,7 @@ O firmware identifica automaticamente a **origem de cada comando** e roteia as r
 | Baud Rate | Velocidade de comunicação serial | `9600 bps` |
 | Pinos M1 | DIR, PUL, ENA do Motor 1 | D2, D3, D6 |
 | Pinos M2 | DIR, PUL, ENA do Motor 2 | D4, D5, D7 |
-| Pinos CMD Serial | RX, TX do SoftwareSerial (Commander) | D10, D11 |
+| Pinos CMD Serial | RX, TX do SoftwareSerial (Commander) | A0, A1 |
 | Safe Clamp | Limite mínimo de intervalo de pulso | `50 µs` |
 | MAX_FILA | Capacidade da fila SRAM | `20 slots` |
 | MAX_PRESETS | Slots de preset na EEPROM | `10 slots` |

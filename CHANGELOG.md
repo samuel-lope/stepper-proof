@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [1.7.0] - 2026-04-25
 ### Added
-- **SoftwareSerial no Firmware Principal**: `stepcontrol.ino` agora escuta comandos em duas portas simultâneas — USB Serial (Web) e SoftwareSerial D10/D11 (Commander).
+- **SoftwareSerial no Firmware Principal**: `stepcontrol.ino` agora escuta comandos em duas portas simultâneas — USB Serial (Web) e SoftwareSerial A0/A1 (Commander).
 - **Roteamento Inteligente de Respostas**: O firmware detecta automaticamente a origem de cada comando (`SRC_USB` ou `SRC_COMMANDER`) e roteia respostas de forma diferenciada:
   - **USB**: Dados completos (`C0:0,10:1600,11:250,...`).
   - **Commander**: Formato otimizado (`C0:0`), compatível com o display LCD 16x2.
