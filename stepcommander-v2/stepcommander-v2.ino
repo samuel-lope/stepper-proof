@@ -49,15 +49,15 @@
 // =================================================================================
 // 1. MACROS E DEFINIÇÕES (HARDWARE & CONFIG)
 // =================================================================================
-#define MAX_INPUT_LEN 32
-#define SERIAL_BUF_SIZE 32
-#define MSG_MAX_LEN 32
+#define MAX_INPUT_LEN 64
+#define SERIAL_BUF_SIZE 64
+#define MSG_MAX_LEN 64
 #define SCROLL_INTERVAL_BASE 500 // [OPT-8] Intervalo base do scroll em ms
 #define MSG_TIMEOUT_MS 8000      // [OPT-3] Tempo para mensagem de status expirar
 
 // Configurações da EEPROM (10 Slots de Macro)
 #define EEPROM_START_ADDR 0
-#define SLOT_SIZE 33 // 32 chars + null terminator
+#define SLOT_SIZE 65 // 64 chars + null terminator
 #define NUM_SLOTS 10
 
 // Display LCD I2C (Endereço 0x27, 16 Colunas, 2 Linhas)
@@ -294,6 +294,10 @@ void processKeypad()
                 inputBuffer[inputLen++] = '-';
                 inputBuffer[inputLen] = '\0';
             }
+            else
+            {
+                setStatusMsg("LIMITE!");
+            }
             // Continua processando a tecla atual normalmente (cai no fluxo abaixo)
         }
     }
@@ -393,6 +397,10 @@ void processKeypad()
                 inputBuffer[inputLen++] = ':';
                 inputBuffer[inputLen] = '\0';
             }
+            else
+            {
+                setStatusMsg("LIMITE!");
+            }
         }
         else if (isDigit(key))
         {
@@ -402,6 +410,10 @@ void processKeypad()
                 inputBuffer[inputLen++] = key;
                 inputBuffer[inputLen] = '\0';
             }
+            else
+            {
+                setStatusMsg("LIMITE!");
+            }
         }
         else
         {
@@ -410,6 +422,10 @@ void processKeypad()
             {
                 inputBuffer[inputLen++] = key;
                 inputBuffer[inputLen] = '\0';
+            }
+            else
+            {
+                setStatusMsg("LIMITE!");
             }
         }
     }
@@ -424,10 +440,17 @@ void processKeypad()
         else
             toAppend = key;
 
-        if (toAppend && inputLen < MAX_INPUT_LEN)
+        if (toAppend)
         {
-            inputBuffer[inputLen++] = toAppend;
-            inputBuffer[inputLen] = '\0';
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = toAppend;
+                inputBuffer[inputLen] = '\0';
+            }
+            else
+            {
+                setStatusMsg("LIMITE!");
+            }
         }
     }
 
