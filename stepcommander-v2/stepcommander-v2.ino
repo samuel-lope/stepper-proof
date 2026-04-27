@@ -1,6 +1,6 @@
 /*
  * =================================================================================
- * Stepper Commander - Interface H8P (v2.1 - Fully Optimized)
+ * Stepper Commander - Interface H8P (v2.2 - SRAM Queue)
  * =================================================================================
  *
  * Board: Arduino Uno / Nano (Atmega328P)
@@ -34,6 +34,7 @@
  * - '* + D'  -> Backspace    | '* + A'  -> Inserir '-'
  * - '* + B'  -> Toggle Fast Act Mode
  * - '* + A + C + [0-9]' -> Salvar comando no Slot EEPROM
+ * - '* + 0 + 0 + 0' -> Menu Fila SRAM
  * - No modo Fast Act: [0-9] executa o Slot correspondente
  * =================================================================================
  */
@@ -59,6 +60,10 @@
 #define EEPROM_START_ADDR 0
 #define SLOT_SIZE 65 // 64 chars + null terminator
 #define NUM_SLOTS 10
+
+// Fila de Comandos SRAM
+#define QUEUE_MAX_SLOTS 8
+#define QUEUE_SLOT_SIZE (MAX_INPUT_LEN + 1)
 
 // Display LCD I2C (Endereço 0x27, 16 Colunas, 2 Linhas)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -96,6 +101,8 @@ struct
     uint8_t isMessageLong : 1;
     uint8_t isFastActMode : 1;
     uint8_t msgIsStatus : 1; // [OPT-3] Mensagem temporária (pode expirar)
+    uint8_t menuActive : 1;    // Menu Fila SRAM ativo
+    uint8_t menuSelection : 1; // 0=Enviar MCU, 1=Limpar SRAM
 } systemFlags;
 
 // [OPT-5] Buffers estáticos char[] — sem String, sem heap, sem fragmentação
@@ -115,6 +122,10 @@ unsigned long lastMsgTime = 0;
 // 0=idle, 1=recebeu *+A, 2=recebeu *+A+C (aguarda dígito)
 uint8_t saveComboState = 0;
 
+// Fila de Comandos SRAM (persistente até clear)
+char sramQueue[QUEUE_MAX_SLOTS][QUEUE_SLOT_SIZE];
+uint8_t queueCount = 0;
+
 // Buffer estático para recepção Serial não-bloqueante
 char rxBuffer[SERIAL_BUF_SIZE];
 uint8_t rxIndex = 0;
@@ -133,6 +144,11 @@ void runSlot(uint8_t slot);
 void setStatusMsg(const char *msg);
 void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t idx);
 void diagnosticEEPROM(); // [OPT-7]
+bool isMotorCommand(const char *cmd);
+void enqueueCommand(const char *cmd);
+void sendQueueToMCU();
+void enterMenu();
+void processMenuKey(char key);
 
 // =================================================================================
 // 4. SETUP INICIAL
@@ -157,8 +173,10 @@ void setup()
     systemFlags.isMessageLong = 0;
     systemFlags.isFastActMode = 0;
     systemFlags.msgIsStatus = 0;
+    systemFlags.menuActive = 0;
+    systemFlags.menuSelection = 0;
 
-    Serial.println(F("StepCommander v2.1 [Optimized]"));
+    Serial.println(F("StepCommander v2.2 [SRAM Queue]"));
 
     diagnosticEEPROM(); // [OPT-7] Exibe slots gravados ao iniciar
 }
@@ -265,6 +283,13 @@ void processKeypad()
     if (!key)
         return;
 
+    // Menu SRAM ativo: redireciona teclas para o menu
+    if (systemFlags.menuActive)
+    {
+        processMenuKey(key);
+        return;
+    }
+
     Serial.print(F("Tecla: "));
     Serial.println(key);
 
@@ -335,7 +360,7 @@ void processKeypad()
     {
         if (key == '#')
         {
-            // [* + #] = ENTER — Remove ':' e envia o comando
+            // [* + #] = ENTER — Remove ':' e enfileira/envia o comando
             inputBuffer[--inputLen] = '\0';
 
             if (inputLen == 0 && lastCommand[0] != '\0')
@@ -351,9 +376,21 @@ void processKeypad()
 
             if (inputLen > 0)
             {
-                mainSerial.println(inputBuffer);
-                Serial.print(F("TX: "));
-                Serial.println(inputBuffer);
+                if (isMotorCommand(inputBuffer))
+                {
+                    enqueueCommand(inputBuffer);
+                }
+                else if (strcmp(inputBuffer, "01") == 0)
+                {
+                    sendQueueToMCU();
+                }
+                else
+                {
+                    // Passthrough direto para a placa principal
+                    mainSerial.println(inputBuffer);
+                    Serial.print(F("TX: "));
+                    Serial.println(inputBuffer);
+                }
             }
             inputLen = 0;
             inputBuffer[0] = '\0';
@@ -454,6 +491,15 @@ void processKeypad()
         }
     }
 
+    // Detecção do atalho *+000 → Menu Fila SRAM
+    if (inputLen == 4 && inputBuffer[0] == ':' &&
+        inputBuffer[1] == '0' && inputBuffer[2] == '0' && inputBuffer[3] == '0')
+    {
+        inputLen = 0;
+        inputBuffer[0] = '\0';
+        enterMenu();
+    }
+
     systemFlags.lcdNeedsUpdate = 1;
 }
 
@@ -504,14 +550,52 @@ void handleDisplayTasks()
 
 void updateLCD()
 {
+    // --- Modo Menu SRAM ---
+    if (systemFlags.menuActive)
+    {
+        char dispTop[17];
+        char dispBot[17];
+        if (systemFlags.menuSelection == 0)
+        {
+            snprintf_P(dispTop, 17, PSTR(">Enviar MCU  [%d]"), queueCount);
+            strcpy_P(dispBot, PSTR(" Limpar SRAM    "));
+        }
+        else
+        {
+            snprintf_P(dispTop, 17, PSTR(" Enviar MCU  [%d]"), queueCount);
+            strcpy_P(dispBot, PSTR(">Limpar SRAM    "));
+        }
+        lcd.setCursor(0, 0);
+        lcd.print(dispTop);
+        lcd.setCursor(0, 1);
+        lcd.print(dispBot);
+        return;
+    }
+
     char dispTop[17];
     char dispBot[17];
 
-    // --- Linha 1 (Topo): [F] Cmd: ou Cmd: + últimos N chars do inputBuffer ---
-    const char *prefix = systemFlags.isFastActMode ? "[F] Cmd:" : "Cmd:";
-    uint8_t prefixLen = systemFlags.isFastActMode ? 8 : 4;
-    uint8_t maxInLen = 16 - prefixLen;
+    // --- Linha 1 (Topo): Prefixo dinâmico + últimos N chars do inputBuffer ---
+    char prefix[11];
+    uint8_t prefixLen;
 
+    if (systemFlags.isFastActMode)
+    {
+        strcpy(prefix, "[F]Cmd:");
+        prefixLen = 7;
+    }
+    else if (queueCount > 0)
+    {
+        snprintf_P(prefix, sizeof(prefix), PSTR("[%d]Cmd:"), queueCount);
+        prefixLen = strlen(prefix);
+    }
+    else
+    {
+        strcpy(prefix, "Cmd:");
+        prefixLen = 4;
+    }
+
+    uint8_t maxInLen = 16 - prefixLen;
     strncpy(dispTop, prefix, 16);
     dispTop[prefixLen] = '\0';
 
@@ -525,7 +609,6 @@ void updateLCD()
     }
     else
     {
-        // Mostra apenas os últimos N caracteres (janela deslizante)
         strncat(dispTop, inputBuffer + (inputLen - maxInLen), maxInLen);
         dispTop[16] = '\0';
     }
@@ -542,7 +625,6 @@ void updateLCD()
     }
     else
     {
-        // [OPT-1/OPT-2] Scroll sem alocação dinâmica, índice uint16_t
         scrollTextToBuffer(dispBot, currentMsg, msgLen, scrollIndexBottom);
     }
 
@@ -688,4 +770,109 @@ void diagnosticEEPROM()
             Serial.println(buffer);
     }
     Serial.println(F("--------------------"));
+}
+
+// =================================================================================
+// 10. FILA DE COMANDOS SRAM
+// =================================================================================
+
+// Detecta se o comando contém parâmetros de motor (10: ou 11:)
+bool isMotorCommand(const char *cmd)
+{
+    return (strstr(cmd, "10:") != NULL || strstr(cmd, "11:") != NULL);
+}
+
+// Adiciona comando à fila SRAM
+void enqueueCommand(const char *cmd)
+{
+    if (queueCount >= QUEUE_MAX_SLOTS)
+    {
+        setStatusMsg("Fila Cheia!");
+        return;
+    }
+
+    strncpy(sramQueue[queueCount], cmd, MAX_INPUT_LEN);
+    sramQueue[queueCount][MAX_INPUT_LEN] = '\0';
+    queueCount++;
+
+    char msg[20];
+    snprintf_P(msg, sizeof(msg), PSTR("[%d] Enfileirado"), queueCount);
+    setStatusMsg(msg);
+
+    Serial.print(F("Q+["));
+    Serial.print(queueCount - 1);
+    Serial.print(F("]: "));
+    Serial.println(cmd);
+}
+
+// Envia toda a fila SRAM para a placa principal + comando 01 (run)
+void sendQueueToMCU()
+{
+    if (queueCount == 0)
+    {
+        setStatusMsg("Fila Vazia!");
+        return;
+    }
+
+    Serial.print(F("TX Queue: "));
+    Serial.print(queueCount);
+    Serial.println(F(" linhas"));
+
+    for (uint8_t i = 0; i < queueCount; i++)
+    {
+        mainSerial.println(sramQueue[i]);
+        Serial.print(F("TX["));
+        Serial.print(i);
+        Serial.print(F("]: "));
+        Serial.println(sramQueue[i]);
+        delay(50); // Evita overflow do buffer da placa principal
+    }
+
+    // Envia comando RUN
+    mainSerial.println(F("01"));
+    Serial.println(F("TX: 01 (run)"));
+
+    char msg[20];
+    snprintf_P(msg, sizeof(msg), PSTR("Enviado! [%d]"), queueCount);
+    setStatusMsg(msg);
+}
+
+// Ativa o menu SRAM no LCD
+void enterMenu()
+{
+    systemFlags.menuActive = 1;
+    systemFlags.menuSelection = 0;
+    systemFlags.lcdNeedsUpdate = 1;
+    Serial.println(F("Menu SRAM aberto"));
+}
+
+// Processa teclas no modo menu
+// A/B = navegar, # = confirmar, * = cancelar
+void processMenuKey(char key)
+{
+    if (key == 'A' || key == 'B')
+    {
+        systemFlags.menuSelection = !systemFlags.menuSelection;
+    }
+    else if (key == '#')
+    {
+        systemFlags.menuActive = 0;
+        if (systemFlags.menuSelection == 0)
+        {
+            sendQueueToMCU();
+        }
+        else
+        {
+            queueCount = 0;
+            setStatusMsg("SRAM Limpa!");
+            Serial.println(F("Queue cleared"));
+        }
+    }
+    else if (key == '*')
+    {
+        systemFlags.menuActive = 0;
+        setStatusMsg("Menu Fechado");
+    }
+
+    systemFlags.lcdNeedsUpdate = 1;
 }
