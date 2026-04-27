@@ -3,12 +3,12 @@
 
 ## Core Files
 - [stepcontrol/stepcontrol.ino]: Firmware AVR (C++). Timer1 Dual-Channel Freerunning. Dual-input: USB Serial + SoftwareSerial (A0/A1). Protocolo H8P (01-1C).
-- [stepcommander-v2/stepcommander-v2.ino]: Periférico de I/O V2 (Atmega328P). Não-bloqueante. Teclado 4x4 + LCD I2C + 10 macros EEPROM locais.
+- [stepcommander-v2/stepcommander-v2.ino]: Periférico de I/O V2.2 (Atmega328P). Não-bloqueante. Teclado 4x4 + LCD I2C + 10 macros EEPROM (64 chars) + Fila SRAM (5 slots) + Menu interativo.
 - [stepcommander/stepcommander.ino]: Periférico de I/O V1 (Atmega328P). Simples/Legacy.
 - [public/app.js]: Main UI logic. Serial link, H8P parser, live telemetry, and jog scrubbers.
 - [public/i18n.js]: Translation engine (EN/PT) with dynamic dictionary override system.
 - [docs/INTEGRATION.md]: Technical API Reference. H8P protocol, response routing, and dual-interface architecture.
-- [docs/STEPCOMMANDER.md]: Commander hardware setup, shortcuts, and LCD feedback reference.
+- [docs/STEPCOMMANDER.md]: Commander hardware setup, shortcuts, SRAM queue, and LCD feedback reference.
 
 ## Key Concepts
 
@@ -22,7 +22,7 @@
 - **Architecture**: Pair-based `Key:Value` hex strings (ex: `10:1600`) separated by commas.
 - **Commands**: `01` (RUN), `02` (STOP), `03` (Loop), `04` (Pause), `10-15` (Motor params), `16-17` (Driver EN), `18-1C` (EEPROM presets).
 - **Safety**: Minimum interval clamp (50µs) and atomic hardware stops (`cli`/`sei`).
-- **Memory**: 20 slots SRAM queue + 10 EEPROM presets.
+- **Memory**: 20 slots SRAM queue (main board) + 10 EEPROM presets.
 
 ### Dual-Channel Hardware Timing
 - **M1**: Driven by `TIMER1_COMPA_vect` (OCR1A).
@@ -34,9 +34,17 @@
 - **Origin-only**: Errors (E0-E4) and data responses (C0, B9, BA, BB, BC).
 - **USB-only**: High-frequency telemetry — D0 (active line), C1 (queue count).
 
+### Commander SRAM Queue (v2.2)
+- **Enqueue**: Motor commands (containing `10:` or `11:`) are queued locally instead of sent immediately.
+- **Execute**: Typing `01` re-transmits the entire SRAM queue to the main board + sends RUN.
+- **Passthrough**: Non-motor commands (`02`, `03`, `16:1`, etc.) bypass the queue.
+- **Menu (`*+000`)**: Interactive LCD menu with "Enviar MCU" (send queue) and "Limpar SRAM" (clear) options.
+- **Capacity**: 5 command slots × 64 chars each.
+
 ### Persistence & Customization
 - **EEPROM (Firmware)**: 10 action slots (`18`, `19`, `1A`, `1B`, `1C`) for preset execution.
-- **EEPROM (Commander)**: 10 local macro slots (32 chars each) for fast command dispatch.
+- **EEPROM (Commander)**: 10 local macro slots (64 chars each) for fast command dispatch.
+- **SRAM (Commander)**: 5 motor command slots, persistent until manual clear via menu.
 - **LocalStorage (Web)**: Custom i18n overrides and alert visibility preferences.
 
 ## Operational Constraints
@@ -44,3 +52,5 @@
 - **Motor Compatibility**: Pulse/Dir/Enable interface (NEMA 17/23/34 via TB6600).
 - **Atomic Stop**: Command `02` kills all interrupts and clears all queues.
 - **Pins Used**: D2-D7 (Motors), A0-A1 (SoftwareSerial), D0-D1 (USB Serial).
+- **Commander Buffer**: 64 chars max per command. LCD shows "LIMITE!" on overflow.
+- **TM1638**: Commented out by default to save memory. Uncomment in source to enable.

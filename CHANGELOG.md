@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-04-26
+### Added
+- **Fila de Comandos SRAM (Commander V2.2)**: Comandos de motor (`10:`, `11:`) são enfileirados localmente na SRAM do Commander (5 slots × 64 chars). Ao enviar `01`, toda a fila é re-transmitida para a placa principal automaticamente.
+- **Menu Fila SRAM (`*+000`)**: Novo atalho de 4 teclas abre menu interativo no LCD com opções "Enviar MCU" e "Limpar SRAM". Navegação via `A`/`B`, confirmação com `#`, cancelamento com `*`.
+- **Indicador de Fila no LCD**: Prefixo dinâmico `[N]Cmd:` mostra a quantidade de comandos enfileirados na SRAM.
+- **Buffer de 64 caracteres**: `MAX_INPUT_LEN`, `SERIAL_BUF_SIZE`, `MSG_MAX_LEN` e `SLOT_SIZE` aumentados de 32 para 64, suportando comandos multi-parâmetro completos.
+- **Aviso de overflow (`LIMITE!`)**: Exibe mensagem no LCD ao atingir o limite de 64 caracteres, em vez de travar o display.
+
+### Changed
+- **TM1638 desabilitado por padrão**: Todas as referências ao módulo TM1638plus foram comentadas para economia de Flash e SRAM. Descomente no código para reativar.
+- **ENTER enfileira em vez de enviar direto**: `*+#` agora enfileira comandos de motor na SRAM local. Comandos não-motor (`02`, `03`, `16:1`, etc.) continuam como passthrough direto.
+- **Documentação consolidada**: README, STEPCOMMANDER.md e llms.txt atualizados para refletir v2.2.
+
 ## [1.7.0] - 2026-04-25
 ### Added
 - **SoftwareSerial no Firmware Principal**: `stepcontrol.ino` agora escuta comandos em duas portas simultâneas — USB Serial (Web) e SoftwareSerial A0/A1 (Commander).

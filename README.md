@@ -64,7 +64,7 @@ O firmware identifica automaticamente a **origem de cada comando** e roteia as r
 - **UI Premium (Tailwind):** Telemetria dual ao vivo, modo escuro em painéis e Command Builder minimalista.
 - **Segurança de Hardware:** Bloco atômico para interrupção de emergência (`STOP`) e *Safety Clamp* de 50µs.
 - **Internacionalização (i18n):** Suporte nativo a `EN-US` e `PT-BR`.
-- **StepCommander V2:** Módulo periférico não-bloqueante com LCD 16x2, teclado matricial 4x4 e modos Fast Action. Ver [Docs](./docs/STEPCOMMANDER.md).
+- **StepCommander V2.2:** Módulo periférico não-bloqueante com LCD 16x2, teclado matricial 4x4, modos Fast Action, fila SRAM persistente (5 slots) com menu interativo, e suporte a comandos de até 64 caracteres. Ver [Docs](./docs/STEPCOMMANDER.md).
 
 ## Configuration
 
@@ -75,8 +75,10 @@ O firmware identifica automaticamente a **origem de cada comando** e roteia as r
 | Pinos M2 | DIR, PUL, ENA do Motor 2 | D4, D5, D7 |
 | Pinos CMD Serial | RX, TX do SoftwareSerial (Commander) | A0, A1 |
 | Safe Clamp | Limite mínimo de intervalo de pulso | `50 µs` |
-| MAX_FILA | Capacidade da fila SRAM | `20 slots` |
+| MAX_FILA | Capacidade da fila SRAM (placa principal) | `20 slots` |
 | MAX_PRESETS | Slots de preset na EEPROM | `10 slots` |
+| MAX_INPUT_LEN | Tamanho máximo de comando (Commander) | `64 chars` |
+| QUEUE_MAX_SLOTS | Fila SRAM local do Commander | `5 slots` |
 
 ## Documentation
 
