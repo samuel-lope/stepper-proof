@@ -516,6 +516,13 @@ void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed) {
 // COMUNICAÇÃO SERIAL E FILA (CÓDIGO HEX)
 // ---------------------------------------------------------
 
+/**
+ * Valida os parâmetros montados do protocolo H8P e adiciona à fila SRAM.
+ * Emite erros (via H8P) se parâmetros obrigatórios faltarem ou a fila encher.
+ *
+ * @param cmd - Estrutura ComandoMotor parcialmente preenchida no parser.
+ * @param cmd_valido - Flag indicando se a instrução base é válida.
+ */
 void constroiEAdicionaComando(ComandoMotor cmd, bool cmd_valido) {
   if (qtd_comandos_na_fila >= MAX_FILA) {
     enviarRespostaHex(0xE2); // Fila Cheia
@@ -544,6 +551,13 @@ void removerEspacos(char *str) {
   } while ((*str++ = *d++));
 }
 
+/**
+ * Interpreta uma string de comando no protocolo H8P (hex).
+ * Remove espaços e extrai chaves (01-1C) com valores associados.
+ * Trata comandos imediatos ou agrupa instruções de fila.
+ * 
+ * @param linha - Ponteiro para o buffer recebido (sofre mutação in-loco com strtok).
+ */
 void interpretarComando(char *linha) {
   removerEspacos(linha);
 
@@ -587,20 +601,29 @@ void interpretarComando(char *linha) {
             enviarRespostaHex(0xE1); // Vazio
           }
           return;
-        } else if (chave == 0x02) { // stop global
+        } else if (chave == 0x02) { // stop global (graceful stop)
           cli();
-          TIMSK1 &= ~((1 << OCIE1A) | (1 << OCIE1B)); // Mata hardware timers
-          m1_em_movimento = 0;
-          m2_em_movimento = 0;
-
-          m1_executando = false;
-          m2_executando = false;
-          m1_em_pausa = false;
-          m2_em_pausa = false;
-
+          // Não mata os hardware timers. Permite que o passo programado termine.
+          m1_repeticoes_restantes = 0;
+          m2_repeticoes_restantes = 0;
+          m1_comando_infinito = false;
+          m2_comando_infinito = false;
           repetir_todas_linhas = false;
-          fila_iniciada = false;
           qtd_comandos_na_fila = 0;
+
+          // Se não estiver em movimento (ex: em pausa ou parado), encerra imediatamente
+          if (!m1_em_movimento) {
+            m1_executando = false;
+            m1_em_pausa = false;
+          }
+          if (!m2_em_movimento) {
+            m2_executando = false;
+            m2_em_pausa = false;
+          }
+          
+          // Desliga o status de fila imediatamente para evitar cleanup residual
+          // que poderia apagar novos comandos enfileirados durante a parada suave.
+          fila_iniciada = false;
           sei();
 
           broadcastHex(0xB1);
@@ -799,6 +822,13 @@ void processarSerial() {
 // MÁQUINA DE ESTADOS - BUSCA DA FILA
 // ---------------------------------------------------------
 
+/**
+ * Varre a fila SRAM buscando a próxima instrução endereçada ao motor alvo.
+ * Inicializa a execução do hardware timer se um comando for encontrado.
+ * 
+ * @param motor - ID do motor alvo (1 ou 2).
+ * @returns true se um novo comando iniciar, false caso não hajam mais comandos.
+ */
 bool carregarProximoComando(uint8_t motor) {
   uint8_t *indice_ptr = (motor == 1) ? &m1_indice_atual : &m2_indice_atual;
   bool *infinito_ptr =
@@ -883,6 +913,12 @@ void avancarFilaM2() {
   }
 }
 
+/**
+ * Loop principal da máquina de estados cooperativa do controlador de passo.
+ * Gerencia pipelines independentes e simultâneos para os motores M1 e M2.
+ * Responsável por aguardar conclusão dos timers de hardware e injetar pausas.
+ * Efetua a limpeza de slots ao concluir a execução natural da fila inteira.
+ */
 void maquinaDeEstadosMotor() {
   // Pipeline M1
   if (m1_executando && !m1_em_movimento) {

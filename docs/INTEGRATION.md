@@ -62,8 +62,8 @@ Inicia a execução simultânea das filas de motor.
 Request: `01`
 Response: `B0`
 
-#### `02` STOP (Emergência)
-Interrompe instantaneamente todos os pulsos de forma atômica e limpa a SRAM.
+#### `02` STOP (Graceful Stop / Parada Suave)
+Cancela repetições e esvazia a fila atual, mas permite que os passos do comando já em execução terminem naturalmente. Se não houver movimento em andamento, a parada é imediata.
 
 **Parameters:**
 | Name | Type | Required | Description |
