@@ -6,6 +6,14 @@
  * ÍNDICE DE CÓDIGOS HEXADECIMAIS (8-bits)
  *
  * --- COMANDOS E PARÂMETROS (ENVIAR PARA O ARDUINO) ---
+ * 
+ * PARÂMETROS:
+ * - Parâmetros de linha de comando (10 a 15): São enviados agrupados por
+ *   vírgulas para formar uma instrução de movimento (Ex: 10:800,11:400,12:1).
+ * - Comandos individuais (01 a 04, 16 a 1C): São enviados isoladamente para
+ *   execução imediata ou configuração de estado (Ex: 01 ou 18:2).
+ *   (Nota: O comando 19 é enviado em conjunto com parâmetros de linha).
+ * 
  * 01 : run       (Inicia a execução da fila)
  * 02 : stop      (Parada de emergência e limpa fila)
  * 03 : repeatAll (Booleano: 03:1 = ativa, 03:0 = desativa loop infinito)

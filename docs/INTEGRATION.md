@@ -45,66 +45,213 @@ Para economizar SRAM (2KB disponíveis no ATmega328P), o sistema não processa s
 
 ### 📤 Comandos de Controle (Enviados → Arduino)
 
-#### `01` - RUN
-Inicia a execução simultânea das filas de motor (`m1_executando = true`, `m2_executando = true`).
-- **Resposta**: `B0` (Broadcast) ou `E0`/`E1` (Somente para quem enviou).
+#### `01` RUN
+Inicia a execução simultânea das filas de motor.
 
-#### `02` - STOP (Emergência)
-Interrompe instantaneamente todos os pulsos via Timer1 de forma atômica (`cli`). Limpa a SRAM.
-- **Resposta**: `B1` + `C1:0` (Broadcast).
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| - | - | - | Comando sem parâmetros adicionais |
 
-#### `03:X` - Loop Mode
+**Response:**
+- `B0`: Fila iniciada (Broadcast)
+- `E0`: Operação rejeitada — motores em execução ativa
+- `E1`: Fila vazia
+
+**Example:**
+Request: `01`
+Response: `B0`
+
+#### `02` STOP (Emergência)
+Interrompe instantaneamente todos os pulsos de forma atômica e limpa a SRAM.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| - | - | - | Comando sem parâmetros adicionais |
+
+**Response:**
+- `B1`: Motor PARADO e Fila limpa (Broadcast)
+- `C1:0`: Telemetria de fila vazia
+
+**Example:**
+Request: `02`
+Response: `B1` + `C1:0`
+
+#### `03` RepeatAll / Loop Mode
 Define se a fila deve recomeçar do zero após atingir o final.
-- `03:1`: Ativa Loop Infinito.
-- `03:0`: Desativa Loop Infinito.
-- **Resposta**: `B4` ou `B6` (Broadcast).
 
-#### `04:X` - Global Pause
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| flag | integer | Yes | `1` ativa loop infinito, `0` desativa |
+
+**Response:**
+- `B4`: Modo repeatAll ATIVADO (Broadcast)
+- `B6`: Modo repeatAll DESATIVADO (Broadcast)
+
+**Example:**
+Request: `03:1`
+Response: `B4`
+
+#### `04` Global Pause
 Define um atraso em milissegundos injetado entre comandos da fila.
-- **Parâmetro**: `X` = milissegundos.
-- **Resposta**: `B2:X` (Broadcast).
 
-#### `16:X` / `17:X` - Driver Control
-Habilita ou desabilita fisicamente o estágio de potência do driver TB6600 (EN Pin).
-- `16:X`: Habilita Motor X (EN → LOW).
-- `17:X`: Desabilita Motor X (EN → HIGH).
-- **Resposta**: `B7:X` ou `B8:X` (Broadcast).
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| ms | integer | Yes | Tempo em milissegundos |
 
-#### `18:X` - Fast Action (EEPROM)
-Executa o preset armazenado no slot `X` (0-9) da EEPROM.
-- **Resposta (USB)**: `BB:X,10:step,11:vel,...` | **Resposta (Commander)**: `BB:X`
-- **Erro**: `E4` (Slot Inválido) ou `E0` (Motor em execução).
+**Response:**
+- `B2:X`: Pausa global definida (Broadcast)
 
-#### `19:X,...` - Write Preset
-Grava uma linha completa de comando no slot `X` da EEPROM.
-- **Sintaxe**: `19:X,10:step,11:vel,12:dir,13:repeat,14:pause,15:motor`
-- **Resposta (USB)**: `B9:X,10:step,...` | **Resposta (Commander)**: `B9:X`
+**Example:**
+Request: `04:1000`
+Response: `B2:1000`
 
-#### `1A:X` - Read Preset
-Solicita o dump de dados do slot `X` da EEPROM.
-- **Resposta (USB)**: `BA:X,10:step,...` | **Resposta (Commander)**: `BA:X`
+#### `16` Enable Motor
+Habilita fisicamente o estágio de potência do driver (EN Pin → LOW).
 
-#### `1B:X:Y` - Scrubber / Jog
-Executa preset `X` com `Y` repetições forçadas. Se `Y` for negativo, inverte a direção original.
-- **Resposta (USB)**: `BC:X,10:step,...` | **Resposta (Commander)**: `BC:X`
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| motor | integer | Yes | `1` para Motor 1, `2` para Motor 2 |
 
-#### `1C:X:Y` - Save SRAM to EEPROM
-Salva a linha de comando armazenada no slot SRAM `Y` (0-19) diretamente no slot EEPROM `X` (0-9).
-- **Resposta (USB)**: `B9:X,10:step,...` | **Resposta (Commander)**: `B9:X`
-- **Erro**: `E1` (SRAM vazia/inválida) ou `E4` (Slot inválido).
+**Response:**
+- `B7:X`: Motor habilitado (Broadcast)
+
+**Example:**
+Request: `16:1`
+Response: `B7:1`
+
+#### `17` Disable Motor
+Desabilita fisicamente o estágio de potência do driver (EN Pin → HIGH).
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| motor | integer | Yes | `1` para Motor 1, `2` para Motor 2 |
+
+**Response:**
+- `B8:X`: Motor desabilitado (Broadcast)
+
+**Example:**
+Request: `17:1`
+Response: `B8:1`
+
+#### `18` Fast Action (EEPROM)
+Executa o preset armazenado em um slot da EEPROM.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| slot | integer | Yes | Slot da EEPROM (0 a 9) |
+
+**Response:**
+- `BB:X,10:step,...`: Preset executado (Completo via USB, apenas `BB:X` via Commander)
+- `E4`: Slot Inválido
+- `E0`: Motor em execução
+
+**Example:**
+Request: `18:2`
+Response: `BB:2,10:1600,11:500,12:1,13:1,14:0,15:1`
+
+#### `19` Write Preset
+Grava uma linha completa de comando na EEPROM.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| slot | integer | Yes | Slot da EEPROM (0 a 9) |
+| 10 | integer | Yes | Quantidade de passos |
+| 11 | integer | Yes | Intervalo (µs) |
+| 12 | integer | No | Direção (`0` ou `1`) |
+| 13 | integer | No | Repetições |
+| 14 | integer | No | Pausa (ms) |
+| 15 | integer | No | Motor (`1` ou `2`) |
+
+**Response:**
+- `B9:X,10:step,...`: Preset gravado com sucesso
+- `E3`: Erro de sintaxe
+- `E4`: Slot Inválido
+
+**Example:**
+Request: `19:2,10:800,11:300,12:0`
+Response: `B9:2,10:800,11:300,12:0,13:1,14:0,15:1`
+
+#### `1A` Read Preset
+Solicita o dump de dados de um slot da EEPROM.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| slot | integer | Yes | Slot da EEPROM (0 a 9) |
+
+**Response:**
+- `BA:X,10:step,...`: Dump do preset
+
+**Example:**
+Request: `1A:2`
+Response: `BA:2,10:800,11:300,12:0,13:1,14:0,15:1`
+
+#### `1B` Scrubber / Jog (Fast Action Repeat)
+Executa preset com repetições forçadas. Direção é invertida se repetições forem negativas.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| slot | integer | Yes | Slot da EEPROM (0 a 9) |
+| rep | integer | Yes | Repetições (se <0 inverte direção original) |
+
+**Response:**
+- `BC:X,10:step,...`: Preset executado com override
+- `E4`: Slot Inválido
+
+**Example:**
+Request: `1B:0:-4`
+Response: `BC:0,10:1600,11:400,12:0,13:4,14:0,15:1`
+
+#### `1C` Save SRAM to EEPROM
+Salva a linha de comando do slot SRAM no slot EEPROM.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| e_slot| integer | Yes | Slot EEPROM destino (0 a 9) |
+| s_slot| integer | Yes | Slot SRAM origem (0 a 19) |
+
+**Response:**
+- `B9:X,10:step,...`: Preset salvo e confirmado
+- `E1`: SRAM vazia/inválida
+- `E4`: Slot EEPROM inválido
+
+**Example:**
+Request: `1C:3:2`
+Response: `B9:3,10:1600,11:500,12:1,13:1,14:0,15:1`
 
 ### 📥 Parâmetros de Motor (Data Injection)
 
-Enviados como string de campos hexadecimais separados por vírgula.
+Enviados como string de campos hexadecimais separados por vírgula. Comandos `10` a `15` montam uma instrução na fila SRAM.
 
-| Chave | Parâmetro | Unidade | Obrigatório |
-|:---|:---|:---|:---|
-| `10` | **Steps** | Qtd Passos | ✅ Sim |
-| `11` | **Interval** | Microssegundos (µs) | ✅ Sim (Min: 50) |
-| `12` | **Direction**| `0` (REV) / `1` (FWD) | ❌ Não |
-| `13` | **Repeat** | Ciclos (`0` = ∞) | ❌ Não |
-| `14` | **Pause** | Millissegundos (ms) | ❌ Não |
-| `15` | **Target** | `1` (M1) / `2` (M2) | ❌ Não |
+**Parameters:**
+| Chave | Parâmetro | Unidade | Obrigatório | Descrição |
+|:---|:---|:---|:---|:---|
+| `10` | **Steps** | Qtd Passos | ✅ Sim | Quantidade de passos a executar |
+| `11` | **Interval**| Microssegundos (µs)| ✅ Sim (Min: 50) | Intervalo entre pulsos |
+| `12` | **Direction**| `0` (REV) / `1` (FWD) | ❌ Não | Sentido de rotação |
+| `13` | **Repeat** | Ciclos (`0` = ∞) | ❌ Não | Repetições da instrução |
+| `14` | **Pause** | Millissegundos (ms) | ❌ Não | Pausa pós-instrução |
+| `15` | **Target** | `1` (M1) / `2` (M2) | ❌ Não | Motor Alvo |
+
+**Response:**
+- `C0:X,10:step,...`: Comando enfileirado com sucesso no slot SRAM X.
+- `C1:X`: Quantidade atual de slots ocupados na fila SRAM.
+- `E2`: Fila SRAM cheia (máx 20).
+- `E3`: Parâmetros obrigatórios ausentes.
+
+**Example:**
+Request: `10:1600,11:400,12:0,13:5,15:2`
+Response: `C0:0,10:1600,11:400,12:0,13:5,14:0,15:2`
 
 > [!CAUTION]
 > **Safety Clamp de Frequência**: O firmware rejeita intervalos (`11`) menores que **50µs**. Valores abaixo disso causariam *starvation* de interrupções e travamento do MCU. A resposta de rejeição é `E3`.
