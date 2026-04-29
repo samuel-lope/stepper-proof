@@ -555,8 +555,9 @@ void removerEspacos(char *str) {
  * Interpreta uma string de comando no protocolo H8P (hex).
  * Remove espaços e extrai chaves (01-1C) com valores associados.
  * Trata comandos imediatos ou agrupa instruções de fila.
- * 
- * @param linha - Ponteiro para o buffer recebido (sofre mutação in-loco com strtok).
+ *
+ * @param linha - Ponteiro para o buffer recebido (sofre mutação in-loco com
+ * strtok).
  */
 void interpretarComando(char *linha) {
   removerEspacos(linha);
@@ -603,7 +604,8 @@ void interpretarComando(char *linha) {
           return;
         } else if (chave == 0x02) { // stop global (graceful stop)
           cli();
-          // Não mata os hardware timers. Permite que o passo programado termine.
+          // Não mata os hardware timers. Permite que o passo programado
+          // termine.
           m1_repeticoes_restantes = 0;
           m2_repeticoes_restantes = 0;
           m1_comando_infinito = false;
@@ -611,7 +613,8 @@ void interpretarComando(char *linha) {
           repetir_todas_linhas = false;
           qtd_comandos_na_fila = 0;
 
-          // Se não estiver em movimento (ex: em pausa ou parado), encerra imediatamente
+          // Se não estiver em movimento (ex: em pausa ou parado), encerra
+          // imediatamente
           if (!m1_em_movimento) {
             m1_executando = false;
             m1_em_pausa = false;
@@ -620,9 +623,10 @@ void interpretarComando(char *linha) {
             m2_executando = false;
             m2_em_pausa = false;
           }
-          
+
           // Desliga o status de fila imediatamente para evitar cleanup residual
-          // que poderia apagar novos comandos enfileirados durante a parada suave.
+          // que poderia apagar novos comandos enfileirados durante a parada
+          // suave.
           fila_iniciada = false;
           sei();
 
@@ -825,7 +829,7 @@ void processarSerial() {
 /**
  * Varre a fila SRAM buscando a próxima instrução endereçada ao motor alvo.
  * Inicializa a execução do hardware timer se um comando for encontrado.
- * 
+ *
  * @param motor - ID do motor alvo (1 ou 2).
  * @returns true se um novo comando iniciar, false caso não hajam mais comandos.
  */
