@@ -9,6 +9,35 @@
  * - Motor 2: PORTA (PA3=25 DIR, PA4=26 PUL, PA5=27 EN) -> Usando Timer 3
  * - Teclado Matricial: PORTK (Linhas: A8-A11 | Colunas: A12-A15) -> Interrupção PCINT2
  * - Display LCD 16x2 I2C: Pinos de Hardware SDA(20) e SCL(21)
+ * * =================================================================================
+ * ÍNDICE DE CÓDIGOS HEXADECIMAIS (8-bits) - PROTOCOLO INTERNO H8P
+ * =================================================================================
+ * --- COMANDOS E PARÂMETROS (INPUT DO TECLADO / SERIAL) ---
+ * 01 : run          (Inicia a execução da fila)
+ * 02 : stop         (Parada de emergência e limpa fila)
+ * 03 : repeatAll    (Booleano: 03:1 = ativa, 03:0 = desativa loop infinito)
+ * 04 : pause        (Pausa global. Ex: 04:1000)
+ * 10 : step         (Obrigatório - Quantidade de passos)
+ * 11 : vel          (Obrigatório - Intervalo em microssegundos)
+ * 12 : dir          (Opcional - Direção: 0 ou 1)
+ * 13 : repeat       (Opcional - Repetições da linha. 0 = infinito)
+ * 14 : pause        (Opcional - Pausa em ms após a linha)
+ * 15 : motor        (Opcional - Motor Alvo 1 ou 2. Se vazio, motor 1)
+ * 16 : enableMotor  (Habilita driver do motor. Ex: 16:1 ou 16:2 — EN LOW)
+ * 17 : disableMotor (Desabilita driver do motor. Ex: 17:1 ou 17:2 — EN HIGH)
+ * 18 : fastAction   (Executa preset EEPROM imediatamente. Ex: 18:0 a 18:9)
+ * 19 : writePreset  (Grava preset na EEPROM. Ex: 19:2,10:800,11:300...)
+ * 1A : readPreset   (Lê preset da EEPROM. Ex: 1A:2)
+ * 1B : fastActionRep(Executa preset EEPROM com loop customizado. Ex: 1B:0:-4)
+ * 1C : saveToEEPROM (Salva linha da SRAM na EEPROM. Ex: 1C:3:2)
+ * * --- PRINCIPAIS ALERTAS E MENSAGENS NA UI (LCD) ---
+ * A0 : Sis Inicializado
+ * B0 : Executando...
+ * B1 : Motor Parado
+ * B5 : Fila Executada
+ * E0 : Err: Em Execucao
+ * E1 : Err: Fila Vazia
+ * E2 : Err: Fila Cheia
  * =================================================================================
  */
 
@@ -25,11 +54,11 @@
 // ==========================================
 #define M1_DIR_PIN PA0 // Pino 22
 #define M1_PUL_PIN PA1 // Pino 23
-#define M1_EN_PIN  PA2 // Pino 24
+#define M1_EN_PIN PA2  // Pino 24
 
 #define M2_DIR_PIN PA3 // Pino 25
 #define M2_PUL_PIN PA4 // Pino 26
-#define M2_EN_PIN  PA5 // Pino 27
+#define M2_EN_PIN PA5  // Pino 27
 
 // ==========================================
 // ESTRUTURAS E EEPROM
@@ -40,7 +69,8 @@
 #define EEPROM_PRESETS_ADDR 1
 #define MAX_PRESETS 10
 
-typedef struct {
+typedef struct
+{
     uint32_t step;
     uint32_t vel;
     uint8_t dir;
@@ -58,6 +88,8 @@ uint8_t qtd_comandos_na_fila = 0;
 bool repetir_todas_linhas = false;
 bool fila_iniciada = false;
 uint32_t global_pause_ms = 0;
+bool is_global_paused = false;
+uint32_t tempo_inicio_global_pause = 0;
 
 // --- Estado Motor 1 ---
 volatile uint32_t m1_passos_restantes = 0;
@@ -69,6 +101,7 @@ uint8_t m1_indice_atual = 0;
 uint16_t m1_repeticoes_restantes = 0;
 bool m1_em_pausa = false;
 uint32_t m1_tempo_inicio_pausa = 0;
+bool m1_comando_infinito = false;
 
 // --- Estado Motor 2 ---
 volatile uint32_t m2_passos_restantes = 0;
@@ -80,6 +113,7 @@ uint8_t m2_indice_atual = 0;
 uint16_t m2_repeticoes_restantes = 0;
 bool m2_em_pausa = false;
 uint32_t m2_tempo_inicio_pausa = 0;
+bool m2_comando_infinito = false;
 
 // ==========================================
 // VARIÁVEIS DA INTERFACE (UI)
@@ -95,11 +129,10 @@ int scrollIndexBottom = 0;
 // Variáveis do Teclado (PCINT)
 volatile bool keyPressFlag = false;
 char matrixKeys[4][4] = {
-  {'1', '2', '3', 'A'},
-  {'4', '5', '6', 'B'},
-  {'7', '8', '9', 'C'},
-  {'*', '0', '#', 'D'}
-};
+    {'1', '2', '3', 'A'},
+    {'4', '5', '6', 'B'},
+    {'7', '8', '9', 'C'},
+    {'*', '0', '#', 'D'}};
 
 // ==========================================
 // PROTÓTIPOS
@@ -110,124 +143,161 @@ void interpretarComando(char *linha);
 bool carregarProximoComando(uint8_t motor);
 void moverMotor1(uint32_t passos, uint32_t intervalo_us, uint8_t direcao);
 void moverMotor2(uint32_t passos, uint32_t intervalo_us, uint8_t direcao);
+void inicializarPresetsEEPROM();
+void gravarPresetEEPROM(uint8_t idx, ComandoMotor cmd);
+ComandoMotor lerPresetEEPROM(uint8_t idx);
+void executarFastAction(uint8_t idx);
+void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed);
 
 // ==========================================
 // SETUP
 // ==========================================
-void setup() {
-    Serial.begin(9600); // Apenas para debug
+void setup()
+{
+    Serial.begin(9600);
 
     // 1. Configura LCD
     lcd.init();
     lcd.backlight();
     updateLCD();
 
-    // 2. Configura Pinos dos Motores (PORTA) como SAÍDA e desliga (LOW)
+    // 2. Configura Pinos dos Motores (PORTA) como SAÍDA e desliga (LOW - Enable ativo baixo normalmente, mas começa HIGH desabilitado)
     DDRA |= (1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M1_EN_PIN) |
             (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN);
-    PORTA &= ~((1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M1_EN_PIN) |
-               (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN));
+    // Ativa pull-up no ENABLE (Motor Desabilitado inicialmente)
+    PORTA |= (1 << M1_EN_PIN) | (1 << M2_EN_PIN);
+    PORTA &= ~((1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN));
 
     cli();
-    // 3. Configura Timer 1 (Motor 1) - Prescaler 8 (2 MHz = 0.5us por tick)
+    // 3. Configura Timer 1 (Motor 1) - Prescaler 8
     TCCR1A = 0;
     TCCR1B = (1 << CS11);
     TCNT1 = 0;
 
-    // 4. Configura Timer 3 (Motor 2) - Prescaler 8 (2 MHz = 0.5us por tick)
+    // 4. Configura Timer 3 (Motor 2) - Prescaler 8
     TCCR3A = 0;
     TCCR3B = (1 << CS31);
     TCNT3 = 0;
 
     // 5. Configura Teclado no PORTK com Interrupção (PCINT2)
-    // PK0-PK3 (A8-A11) como Saídas (Linhas), PK4-PK7 (A12-A15) como Entradas (Colunas)
-    DDRK = 0x0F; 
-    PORTK = 0xF0; // Linhas em LOW, Colunas com Pull-up ativado
-    
-    PCICR |= (1 << PCIE2); // Habilita interrupção PCINT2 (PORTK)
-    PCMSK2 |= 0xF0;        // Mascara para ativar PCINT apenas nas colunas (PK4 a PK7)
+    DDRK = 0x0F;
+    PORTK = 0xF0;
+
+    PCICR |= (1 << PCIE2);
+    PCMSK2 |= 0xF0;
     sei();
 
-    setUIMessage("Pronto.");
+    inicializarPresetsEEPROM();
+
+    setUIMessage("A0: Inicializado");
 }
 
 // ==========================================
 // ROTINAS DE INTERRUPÇÃO (ISRs)
 // ==========================================
-
-// ISR Teclado (Dispara ao pressionar ou soltar tecla)
-ISR(PCINT2_vect) {
+ISR(PCINT2_vect)
+{
     keyPressFlag = true;
 }
 
-// ISR Motor 1 (Timer 1)
-ISR(TIMER1_COMPA_vect) {
-    if (m1_delay_ticks > 0) {
-        if (m1_delay_ticks > 65535) {
+ISR(TIMER1_COMPA_vect)
+{
+    if (m1_delay_ticks > 0)
+    {
+        if (m1_delay_ticks > 65535)
+        {
             OCR1A += 65535;
             m1_delay_ticks -= 65535;
-        } else {
+        }
+        else
+        {
             OCR1A += m1_delay_ticks;
             m1_delay_ticks = 0;
         }
-    } else {
-        if (m1_passos_restantes > 0) {
-            PORTA |= (1 << M1_PUL_PIN);   // PULSO ALTO
-            _delay_us(3);                 // Exigência TB6600
-            PORTA &= ~(1 << M1_PUL_PIN);  // PULSO BAIXO
+    }
+    else
+    {
+        if (m1_passos_restantes > 0)
+        {
+            PORTA |= (1 << M1_PUL_PIN);
+            _delay_us(3);
+            PORTA &= ~(1 << M1_PUL_PIN);
             m1_passos_restantes--;
 
-            if (m1_passos_restantes > 0) {
+            if (m1_passos_restantes > 0)
+            {
                 m1_delay_ticks = m1_interval_ticks;
-                if (m1_delay_ticks > 65535) {
+                if (m1_delay_ticks > 65535)
+                {
                     OCR1A += 65535;
                     m1_delay_ticks -= 65535;
-                } else {
+                }
+                else
+                {
                     OCR1A += m1_delay_ticks;
                     m1_delay_ticks = 0;
                 }
-            } else {
-                TIMSK1 &= ~(1 << OCIE1A); // Desliga interrupção
+            }
+            else
+            {
+                TIMSK1 &= ~(1 << OCIE1A);
                 m1_em_movimento = 0;
             }
-        } else {
+        }
+        else
+        {
             TIMSK1 &= ~(1 << OCIE1A);
             m1_em_movimento = 0;
         }
     }
 }
 
-// ISR Motor 2 (Timer 3)
-ISR(TIMER3_COMPA_vect) {
-    if (m2_delay_ticks > 0) {
-        if (m2_delay_ticks > 65535) {
+ISR(TIMER3_COMPA_vect)
+{
+    if (m2_delay_ticks > 0)
+    {
+        if (m2_delay_ticks > 65535)
+        {
             OCR3A += 65535;
             m2_delay_ticks -= 65535;
-        } else {
+        }
+        else
+        {
             OCR3A += m2_delay_ticks;
             m2_delay_ticks = 0;
         }
-    } else {
-        if (m2_passos_restantes > 0) {
-            PORTA |= (1 << M2_PUL_PIN);   
+    }
+    else
+    {
+        if (m2_passos_restantes > 0)
+        {
+            PORTA |= (1 << M2_PUL_PIN);
             _delay_us(3);
-            PORTA &= ~(1 << M2_PUL_PIN);  
+            PORTA &= ~(1 << M2_PUL_PIN);
             m2_passos_restantes--;
 
-            if (m2_passos_restantes > 0) {
+            if (m2_passos_restantes > 0)
+            {
                 m2_delay_ticks = m2_interval_ticks;
-                if (m2_delay_ticks > 65535) {
+                if (m2_delay_ticks > 65535)
+                {
                     OCR3A += 65535;
                     m2_delay_ticks -= 65535;
-                } else {
+                }
+                else
+                {
                     OCR3A += m2_delay_ticks;
                     m2_delay_ticks = 0;
                 }
-            } else {
-                TIMSK3 &= ~(1 << OCIE3A); 
+            }
+            else
+            {
+                TIMSK3 &= ~(1 << OCIE3A);
                 m2_em_movimento = 0;
             }
-        } else {
+        }
+        else
+        {
             TIMSK3 &= ~(1 << OCIE3A);
             m2_em_movimento = 0;
         }
@@ -235,36 +305,158 @@ ISR(TIMER3_COMPA_vect) {
 }
 
 // ==========================================
+// EEPROM FAST ACTION PRESETS
+// ==========================================
+void inicializarPresetsEEPROM()
+{
+    if (EEPROM.read(EEPROM_MAGIC_ADDR) == EEPROM_MAGIC_BYTE)
+        return;
+
+    ComandoMotor defaults[MAX_PRESETS] = {
+        {1600, 400, 1, 1, 0, 1}, {800, 300, 0, 1, 0, 1}, {3200, 500, 1, 2, 1000, 1}, {1600, 400, 1, 1, 0, 2}, {800, 200, 0, 1, 500, 2}, {0, 0, 0, 0, 0, 1}, {0, 0, 0, 0, 0, 1}, {0, 0, 0, 0, 0, 1}, {0, 0, 0, 0, 0, 1}, {0, 0, 0, 0, 0, 1}};
+    for (uint8_t i = 0; i < MAX_PRESETS; i++)
+        gravarPresetEEPROM(i, defaults[i]);
+    EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_BYTE);
+}
+
+void gravarPresetEEPROM(uint8_t idx, ComandoMotor cmd)
+{
+    uint16_t addr = EEPROM_PRESETS_ADDR + (idx * sizeof(ComandoMotor));
+    EEPROM.put(addr, cmd);
+}
+
+ComandoMotor lerPresetEEPROM(uint8_t idx)
+{
+    ComandoMotor cmd;
+    uint16_t addr = EEPROM_PRESETS_ADDR + (idx * sizeof(ComandoMotor));
+    EEPROM.get(addr, cmd);
+    return cmd;
+}
+
+void executarFastAction(uint8_t idx)
+{
+    if (m1_executando || m2_executando)
+    {
+        setUIMessage("E0: Em Execucao");
+        return;
+    }
+    if (idx >= MAX_PRESETS)
+    {
+        setUIMessage("E4: Preset Inv.");
+        return;
+    }
+
+    ComandoMotor cmd = lerPresetEEPROM(idx);
+    qtd_comandos_na_fila = 0;
+    fila_comandos[0] = cmd;
+    qtd_comandos_na_fila = 1;
+
+    m1_executando = true;
+    m2_executando = true;
+    m1_indice_atual = 0;
+    m2_indice_atual = 0;
+
+    if (!carregarProximoComando(1))
+        m1_executando = false;
+    if (!carregarProximoComando(2))
+        m2_executando = false;
+
+    if (m1_executando || m2_executando)
+    {
+        fila_iniciada = true;
+        setUIMessage("BB: FastAct " + String(idx));
+    }
+}
+
+void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed)
+{
+    if (m1_executando || m2_executando)
+    {
+        setUIMessage("E0: Em Execucao");
+        return;
+    }
+    if (idx >= MAX_PRESETS)
+    {
+        setUIMessage("E4: Preset Inv.");
+        return;
+    }
+
+    ComandoMotor cmd = lerPresetEEPROM(idx);
+    if (custom_repeat_signed < 0)
+    {
+        cmd.repeat = (uint16_t)(-custom_repeat_signed);
+        cmd.dir = (cmd.dir == 1) ? 0 : 1;
+    }
+    else
+    {
+        cmd.repeat = (uint16_t)custom_repeat_signed;
+    }
+
+    qtd_comandos_na_fila = 0;
+    fila_comandos[0] = cmd;
+    qtd_comandos_na_fila = 1;
+
+    m1_executando = true;
+    m2_executando = true;
+    m1_indice_atual = 0;
+    m2_indice_atual = 0;
+
+    if (!carregarProximoComando(1))
+        m1_executando = false;
+    if (!carregarProximoComando(2))
+        m2_executando = false;
+
+    if (m1_executando || m2_executando)
+    {
+        fila_iniciada = true;
+        setUIMessage("BC: FastActRep " + String(idx));
+    }
+}
+
+// ==========================================
 // CONTROLE DE HARDWARE (MOTORES)
 // ==========================================
-void moverMotor1(uint32_t passos, uint32_t intervalo_us, uint8_t direcao) {
-    if (passos == 0 || m1_em_movimento) return;
-    if (direcao) PORTA |= (1 << M1_DIR_PIN);
-    else         PORTA &= ~(1 << M1_DIR_PIN);
+void moverMotor1(uint32_t passos, uint32_t intervalo_us, uint8_t direcao)
+{
+    if (passos == 0 || m1_em_movimento)
+        return;
+    if (direcao)
+        PORTA |= (1 << M1_DIR_PIN);
+    else
+        PORTA &= ~(1 << M1_DIR_PIN);
+    PORTA &= ~(1 << M1_EN_PIN); // Habilita o driver (EN = LOW) automaticamente ao mover
 
     cli();
     m1_passos_restantes = passos;
     m1_em_movimento = 1;
-    m1_interval_ticks = intervalo_us * 2; // Prescaler 8 = 0.5us p/ tick
+    m1_interval_ticks = intervalo_us * 2;
 
     m1_delay_ticks = m1_interval_ticks;
-    if (m1_delay_ticks > 65535) {
+    if (m1_delay_ticks > 65535)
+    {
         OCR1A = TCNT1 + 65535;
         m1_delay_ticks -= 65535;
-    } else {
+    }
+    else
+    {
         OCR1A = TCNT1 + m1_delay_ticks;
         m1_delay_ticks = 0;
     }
 
-    TIFR1 |= (1 << OCF1A);   
-    TIMSK1 |= (1 << OCIE1A); 
+    TIFR1 |= (1 << OCF1A);
+    TIMSK1 |= (1 << OCIE1A);
     sei();
 }
 
-void moverMotor2(uint32_t passos, uint32_t intervalo_us, uint8_t direcao) {
-    if (passos == 0 || m2_em_movimento) return;
-    if (direcao) PORTA |= (1 << M2_DIR_PIN);
-    else         PORTA &= ~(1 << M2_DIR_PIN);
+void moverMotor2(uint32_t passos, uint32_t intervalo_us, uint8_t direcao)
+{
+    if (passos == 0 || m2_em_movimento)
+        return;
+    if (direcao)
+        PORTA |= (1 << M2_DIR_PIN);
+    else
+        PORTA &= ~(1 << M2_DIR_PIN);
+    PORTA &= ~(1 << M2_EN_PIN);
 
     cli();
     m2_passos_restantes = passos;
@@ -272,124 +464,230 @@ void moverMotor2(uint32_t passos, uint32_t intervalo_us, uint8_t direcao) {
     m2_interval_ticks = intervalo_us * 2;
 
     m2_delay_ticks = m2_interval_ticks;
-    if (m2_delay_ticks > 65535) {
+    if (m2_delay_ticks > 65535)
+    {
         OCR3A = TCNT3 + 65535;
         m2_delay_ticks -= 65535;
-    } else {
+    }
+    else
+    {
         OCR3A = TCNT3 + m2_delay_ticks;
         m2_delay_ticks = 0;
     }
 
-    TIFR3 |= (1 << OCF3A);   
-    TIMSK3 |= (1 << OCIE3A); 
+    TIFR3 |= (1 << OCF3A);
+    TIMSK3 |= (1 << OCIE3A);
     sei();
 }
 
 // ==========================================
 // LÓGICA DE FILA E PAUSAS
 // ==========================================
-bool carregarProximoComando(uint8_t motor) {
-    // Implementação básica para carregar e iniciar o próximo movimento da fila
-    if(qtd_comandos_na_fila == 0) return false;
-    
-    if(motor == 1) {
-        // Encontra próximo comando do Motor 1
-        while(m1_indice_atual < qtd_comandos_na_fila && fila_comandos[m1_indice_atual].motor_id != 1) {
+bool carregarProximoComando(uint8_t motor)
+{
+    if (qtd_comandos_na_fila == 0)
+        return false;
+
+    if (motor == 1)
+    {
+        while (m1_indice_atual < qtd_comandos_na_fila && fila_comandos[m1_indice_atual].motor_id != 1)
+        {
             m1_indice_atual++;
         }
-        if(m1_indice_atual >= qtd_comandos_na_fila) return false;
+        if (m1_indice_atual >= qtd_comandos_na_fila)
+            return false;
 
         ComandoMotor cmd = fila_comandos[m1_indice_atual];
+        m1_comando_infinito = (cmd.repeat == 0);
+        m1_repeticoes_restantes = (cmd.repeat > 0) ? (cmd.repeat - 1) : 0;
+
         moverMotor1(cmd.step, cmd.vel, cmd.dir);
+        Serial.println("D0: M1 L" + String(m1_indice_atual));
         return true;
-    } else {
-        // Encontra próximo comando do Motor 2
-        while(m2_indice_atual < qtd_comandos_na_fila && fila_comandos[m2_indice_atual].motor_id != 2) {
+    }
+    else
+    {
+        while (m2_indice_atual < qtd_comandos_na_fila && fila_comandos[m2_indice_atual].motor_id != 2)
+        {
             m2_indice_atual++;
         }
-        if(m2_indice_atual >= qtd_comandos_na_fila) return false;
+        if (m2_indice_atual >= qtd_comandos_na_fila)
+            return false;
 
         ComandoMotor cmd = fila_comandos[m2_indice_atual];
+        m2_comando_infinito = (cmd.repeat == 0);
+        m2_repeticoes_restantes = (cmd.repeat > 0) ? (cmd.repeat - 1) : 0;
+
         moverMotor2(cmd.step, cmd.vel, cmd.dir);
+        Serial.println("D0: M2 L" + String(m2_indice_atual));
         return true;
     }
 }
 
-void manageSteppers() {
-    // Motor 1: Check se o movimento acabou e carrega o próximo se necessário
-    if(m1_executando && !m1_em_movimento && !m1_em_pausa) {
-        // Lógica simplificada: pausa após a linha
-        if(fila_comandos[m1_indice_atual].pause_ms > 0) {
-            m1_em_pausa = true;
-            m1_tempo_inicio_pausa = millis();
-        } else {
-            m1_indice_atual++;
-            if(!carregarProximoComando(1)) {
-                m1_executando = false; // Fim da fila M1
+void manageSteppers()
+{
+    // Tratamento de Pausa Global
+    if (global_pause_ms > 0 && !is_global_paused && !m1_em_movimento && !m2_em_movimento && fila_iniciada)
+    {
+        is_global_paused = true;
+        tempo_inicio_global_pause = millis();
+        setUIMessage("B3: Pausa Global");
+    }
+
+    if (is_global_paused)
+    {
+        if (millis() - tempo_inicio_global_pause >= global_pause_ms)
+        {
+            is_global_paused = false;
+            global_pause_ms = 0; // Consome a pausa
+            setUIMessage("B0: Retomando...");
+            // Retoma motores
+            if (m1_executando && !carregarProximoComando(1))
+                m1_executando = false;
+            if (m2_executando && !carregarProximoComando(2))
+                m2_executando = false;
+        }
+        return; // Trava o processamento da fila enquanto estiver na pausa global
+    }
+
+    // Gerenciamento Motor 1
+    if (m1_executando && !m1_em_movimento && !m1_em_pausa)
+    {
+        if (m1_comando_infinito || m1_repeticoes_restantes > 0)
+        {
+            if (!m1_comando_infinito)
+                m1_repeticoes_restantes--;
+            moverMotor1(fila_comandos[m1_indice_atual].step, fila_comandos[m1_indice_atual].vel, fila_comandos[m1_indice_atual].dir);
+        }
+        else
+        {
+            if (fila_comandos[m1_indice_atual].pause_ms > 0)
+            {
+                m1_em_pausa = true;
+                m1_tempo_inicio_pausa = millis();
+            }
+            else
+            {
+                m1_indice_atual++;
+                if (!carregarProximoComando(1))
+                    m1_executando = false;
             }
         }
     }
-    
-    // Tratamento de pausa assíncrona Motor 1
-    if(m1_em_pausa) {
-        if(millis() - m1_tempo_inicio_pausa >= fila_comandos[m1_indice_atual].pause_ms) {
+    if (m1_em_pausa)
+    {
+        if (millis() - m1_tempo_inicio_pausa >= fila_comandos[m1_indice_atual].pause_ms)
+        {
             m1_em_pausa = false;
             m1_indice_atual++;
-            if(!carregarProximoComando(1)) m1_executando = false;
+            if (!carregarProximoComando(1))
+                m1_executando = false;
         }
     }
 
-    // (Lógica semelhante pode ser replicada aqui para o Motor 2 controlando m2_executando)
-    // ...
-    
-    if(fila_iniciada && !m1_executando && !m2_executando) {
-        fila_iniciada = false;
-        setUIMessage("Fila Executada");
+    // Gerenciamento Motor 2
+    if (m2_executando && !m2_em_movimento && !m2_em_pausa)
+    {
+        if (m2_comando_infinito || m2_repeticoes_restantes > 0)
+        {
+            if (!m2_comando_infinito)
+                m2_repeticoes_restantes--;
+            moverMotor2(fila_comandos[m2_indice_atual].step, fila_comandos[m2_indice_atual].vel, fila_comandos[m2_indice_atual].dir);
+        }
+        else
+        {
+            if (fila_comandos[m2_indice_atual].pause_ms > 0)
+            {
+                m2_em_pausa = true;
+                m2_tempo_inicio_pausa = millis();
+            }
+            else
+            {
+                m2_indice_atual++;
+                if (!carregarProximoComando(2))
+                    m2_executando = false;
+            }
+        }
+    }
+    if (m2_em_pausa)
+    {
+        if (millis() - m2_tempo_inicio_pausa >= fila_comandos[m2_indice_atual].pause_ms)
+        {
+            m2_em_pausa = false;
+            m2_indice_atual++;
+            if (!carregarProximoComando(2))
+                m2_executando = false;
+        }
+    }
+
+    // Tratamento de RepeatAll ou Fim de Fila
+    if (fila_iniciada && !m1_executando && !m2_executando && !is_global_paused)
+    {
+        if (repetir_todas_linhas && qtd_comandos_na_fila > 0)
+        {
+            m1_executando = true;
+            m2_executando = true;
+            m1_indice_atual = 0;
+            m2_indice_atual = 0;
+            if (!carregarProximoComando(1))
+                m1_executando = false;
+            if (!carregarProximoComando(2))
+                m2_executando = false;
+        }
+        else
+        {
+            fila_iniciada = false;
+            setUIMessage("B5: Fila Executada");
+        }
     }
 }
 
 // ==========================================
 // TECLADO E INTERFACE (UI)
 // ==========================================
-void setUIMessage(String msg) {
+void setUIMessage(String msg)
+{
     currentMsg = msg;
     scrollIndexBottom = 0;
     updateLCD();
-    Serial.println(msg); // Debug
+    Serial.println(msg);
 }
 
-// Varredura Rápida do Teclado (Chamada apenas quando PCINT dispara)
-char scanKeypadFast() {
+char scanKeypadFast()
+{
     char key = 0;
-    // Desabilita interrupção momentaneamente para escanear
     PCICR &= ~(1 << PCIE2);
-    
-    for (uint8_t r = 0; r < 4; r++) {
-        PORTK = ~(1 << r) | 0xF0; // Põe 0 na linha atual, mantém PULL-UPs nas colunas
-        _delay_us(10);            // Estabilização de sinal
-        
-        uint8_t cols = PINK >> 4; // Lê as colunas (A12-A15)
-        if (cols != 0x0F) {
-            for (uint8_t c = 0; c < 4; c++) {
-                if (!(cols & (1 << c))) {
+    for (uint8_t r = 0; r < 4; r++)
+    {
+        PORTK = ~(1 << r) | 0xF0;
+        _delay_us(10);
+        uint8_t cols = PINK >> 4;
+        if (cols != 0x0F)
+        {
+            for (uint8_t c = 0; c < 4; c++)
+            {
+                if (!(cols & (1 << c)))
+                {
                     key = matrixKeys[r][c];
                     break;
                 }
             }
         }
-        if (key) break;
+        if (key)
+            break;
     }
-    
-    // Restaura estado de repouso (Linhas LOW) e religa PCINT
-    PORTK = 0xF0; 
-    PCIFR |= (1 << PCIF2); // Limpa flag pendente
-    PCICR |= (1 << PCIE2); // Religa interrupção
+    PORTK = 0xF0;
+    PCIFR |= (1 << PCIF2);
+    PCICR |= (1 << PCIE2);
     return key;
 }
 
-String getScrollText(String text, int index) {
-    if (text.length() <= 16) {
-        while (text.length() < 16) text += " ";
+String getScrollText(String text, int index)
+{
+    if (text.length() <= 16)
+    {
+        while (text.length() < 16)
+            text += " ";
         return text;
     }
     String padded = text + "    ";
@@ -399,157 +697,336 @@ String getScrollText(String text, int index) {
     return result.substring(0, 16);
 }
 
-void updateLCD() {
+void updateLCD()
+{
     String dispTop = "Cmd:";
-    if (inputBuffer.length() <= 12) {
+    if (inputBuffer.length() <= 12)
+    {
         dispTop += inputBuffer;
-        while (dispTop.length() < 16) dispTop += " ";
-    } else {
+        while (dispTop.length() < 16)
+            dispTop += " ";
+    }
+    else
+    {
         dispTop += inputBuffer.substring(inputBuffer.length() - 12);
     }
     String dispBot = getScrollText(currentMsg, scrollIndexBottom);
-
-    lcd.setCursor(0, 0); lcd.print(dispTop);
-    lcd.setCursor(0, 1); lcd.print(dispBot);
+    lcd.setCursor(0, 0);
+    lcd.print(dispTop);
+    lcd.setCursor(0, 1);
+    lcd.print(dispBot);
 }
 
-void handleScroll() {
-    if (millis() - lastScrollTime >= 400) {
+void handleScroll()
+{
+    if (millis() - lastScrollTime >= 400)
+    {
         lastScrollTime = millis();
-        if (currentMsg.length() > 16) {
+        if (currentMsg.length() > 16)
+        {
             scrollIndexBottom++;
             updateLCD();
         }
     }
 }
 
-void processKeyInput(char key) {
-    if (inputBuffer.endsWith(":")) {
-        if (key == '#') {
+void processKeyInput(char key)
+{
+    if (inputBuffer.endsWith(":"))
+    {
+        if (key == '#')
+        {
             inputBuffer.remove(inputBuffer.length() - 1);
-            if (inputBuffer.length() == 0 && lastCommand.length() > 0) inputBuffer = lastCommand;
-            else if (inputBuffer.length() > 0) lastCommand = inputBuffer;
+            if (inputBuffer.length() == 0 && lastCommand.length() > 0)
+                inputBuffer = lastCommand;
+            else if (inputBuffer.length() > 0)
+                lastCommand = inputBuffer;
 
-            if (inputBuffer.length() > 0) {
-                // Ao invez de enviar por serial, passamos direto para o motor core!
+            if (inputBuffer.length() > 0)
+            {
                 char cmdBuf[MAX_INPUT_LEN];
                 inputBuffer.toCharArray(cmdBuf, MAX_INPUT_LEN);
-                interpretarComando(cmdBuf); 
+                interpretarComando(cmdBuf);
             }
             inputBuffer = "";
         }
-        else if (key == 'C') inputBuffer = "";
-        else if (key == 'D') {
-            if (inputBuffer.length() >= 2) inputBuffer.remove(inputBuffer.length() - 2);
-            else inputBuffer = "";
+        else if (key == 'C')
+            inputBuffer = "";
+        else if (key == 'D')
+        {
+            if (inputBuffer.length() >= 2)
+                inputBuffer.remove(inputBuffer.length() - 2);
+            else
+                inputBuffer = "";
         }
-        else if (key == 'A') inputBuffer.setCharAt(inputBuffer.length() - 1, '-');
-        else if (key == '*') { if (inputBuffer.length() < MAX_INPUT_LEN) inputBuffer += ":"; }
-        else { if (inputBuffer.length() < MAX_INPUT_LEN) inputBuffer += key; }
-    } else {
-        if (key == '#') { if (inputBuffer.length() < MAX_INPUT_LEN) inputBuffer += ","; }
-        else if (key == '*') { if (inputBuffer.length() < MAX_INPUT_LEN) inputBuffer += ":"; }
-        else { if (inputBuffer.length() < MAX_INPUT_LEN) inputBuffer += key; }
+        else if (key == 'A')
+            inputBuffer.setCharAt(inputBuffer.length() - 1, '-');
+        else if (key == '*')
+        {
+            if (inputBuffer.length() < MAX_INPUT_LEN)
+                inputBuffer += ":";
+        }
+        else
+        {
+            if (inputBuffer.length() < MAX_INPUT_LEN)
+                inputBuffer += key;
+        }
+    }
+    else
+    {
+        if (key == '#')
+        {
+            if (inputBuffer.length() < MAX_INPUT_LEN)
+                inputBuffer += ",";
+        }
+        else if (key == '*')
+        {
+            if (inputBuffer.length() < MAX_INPUT_LEN)
+                inputBuffer += ":";
+        }
+        else
+        {
+            if (inputBuffer.length() < MAX_INPUT_LEN)
+                inputBuffer += key;
+        }
     }
     updateLCD();
 }
 
 // ==========================================
-// PARSER (Interpretador Interno)
+// PARSER (Interpretador H8P Completo)
 // ==========================================
-void interpretarComando(char *linha) {
-    // Remove espaços
-    char *d = linha; do { while (*d == ' ') d++; } while ((*linha++ = *d++));
-    linha = linha - (d - linha); // reset ponteiro
+void interpretarComando(char *linha)
+{
+    char *d = linha;
+    do
+    {
+        while (*d == ' ')
+            d++;
+    } while ((*linha++ = *d++));
+    linha = linha - (d - linha);
 
-    ComandoMotor cmd = {0, 0, 0, 1, 0, 1}; // Default = M1
+    ComandoMotor cmd = {0, 0, 0, 1, 0, 1};
     bool cmd_valido = false;
 
     char *ponteiro_virgula;
     char *par = strtok_r(linha, ",", &ponteiro_virgula);
 
-    while (par != NULL) {
+    while (par != NULL)
+    {
         char *ponteiro_dois_pontos;
         char *chave_str = strtok_r(par, ":", &ponteiro_dois_pontos);
         char *valor_str = strtok_r(NULL, ":", &ponteiro_dois_pontos);
+        char *terceiro_str = strtok_r(NULL, ":", &ponteiro_dois_pontos); // Para comandos complexos como 1B e 1C
 
-        if (chave_str != NULL) {
+        if (chave_str != NULL)
+        {
             uint8_t chave = (uint8_t)strtol(chave_str, NULL, 16);
 
-            if (valor_str == NULL) {
-                if (chave == 0x01) { // run
-                    if (qtd_comandos_na_fila > 0 && (!m1_executando && !m2_executando)) {
-                        m1_executando = true; m2_executando = true;
-                        m1_indice_atual = 0; m2_indice_atual = 0;
-                        if (!carregarProximoComando(1)) m1_executando = false;
-                        if (!carregarProximoComando(2)) m2_executando = false;
-                        if (m1_executando || m2_executando) {
+            if (valor_str == NULL)
+            {
+                if (chave == 0x01)
+                { // 01: run
+                    if (qtd_comandos_na_fila > 0 && (!m1_executando && !m2_executando))
+                    {
+                        m1_executando = true;
+                        m2_executando = true;
+                        m1_indice_atual = 0;
+                        m2_indice_atual = 0;
+                        if (!carregarProximoComando(1))
+                            m1_executando = false;
+                        if (!carregarProximoComando(2))
+                            m2_executando = false;
+                        if (m1_executando || m2_executando)
+                        {
                             fila_iniciada = true;
-                            setUIMessage("Executando...");
+                            setUIMessage("B0: Executando");
                         }
-                    } else if (m1_executando || m2_executando) {
-                        setUIMessage("Err: Em Execucao");
-                    } else {
-                        setUIMessage("Err: Fila Vazia");
+                    }
+                    else if (m1_executando || m2_executando)
+                    {
+                        setUIMessage("E0: Em Execucao");
+                    }
+                    else
+                    {
+                        setUIMessage("E1: Fila Vazia");
                     }
                     return;
                 }
-                else if (chave == 0x02) { // stop global
+                else if (chave == 0x02)
+                { // 02: stop global
                     cli();
-                    m1_repeticoes_restantes = 0; m2_repeticoes_restantes = 0;
+                    m1_repeticoes_restantes = 0;
+                    m2_repeticoes_restantes = 0;
+                    m1_comando_infinito = false;
+                    m2_comando_infinito = false;
+                    repetir_todas_linhas = false;
                     qtd_comandos_na_fila = 0;
-                    if (!m1_em_movimento) m1_executando = false;
-                    if (!m2_em_movimento) m2_executando = false;
+                    if (!m1_em_movimento)
+                    {
+                        m1_executando = false;
+                        m1_em_pausa = false;
+                    }
+                    if (!m2_em_movimento)
+                    {
+                        m2_executando = false;
+                        m2_em_pausa = false;
+                    }
                     fila_iniciada = false;
                     sei();
-                    setUIMessage("Motor Parado");
+                    setUIMessage("B1: Motor Parado");
                     return;
                 }
-            } else {
-                uint32_t valor = atol(valor_str);
-                if (chave == 0x10) { cmd.step = valor; cmd_valido = true; }
-                else if (chave == 0x11) { cmd.vel = valor; }
-                else if (chave == 0x12) { cmd.dir = valor; }
-                else if (chave == 0x14) { cmd.pause_ms = valor; }
-                else if (chave == 0x15) { cmd.motor_id = valor; }
+            }
+            else
+            {
+                int32_t valor = atol(valor_str); // Usado int32 para suportar valores negativos em 1B
+
+                // Comandos Globais
+                if (chave == 0x03)
+                {
+                    repetir_todas_linhas = (valor == 1);
+                    setUIMessage(repetir_todas_linhas ? "B4: Rep. ON" : "B6: Rep. OFF");
+                    return;
+                }
+                else if (chave == 0x04)
+                {
+                    global_pause_ms = valor;
+                    setUIMessage("B2: Pausa " + String(valor) + "ms");
+                    return;
+                }
+                else if (chave == 0x16)
+                { // enableMotor
+                    if (valor == 1)
+                        PORTA &= ~(1 << M1_EN_PIN);
+                    else if (valor == 2)
+                        PORTA &= ~(1 << M2_EN_PIN);
+                    setUIMessage("B7: M" + String(valor) + " Habilitado");
+                    return;
+                }
+                else if (chave == 0x17)
+                { // disableMotor
+                    if (valor == 1)
+                        PORTA |= (1 << M1_EN_PIN);
+                    else if (valor == 2)
+                        PORTA |= (1 << M2_EN_PIN);
+                    setUIMessage("B8: M" + String(valor) + " Desabilt.");
+                    return;
+                }
+                else if (chave == 0x18)
+                {
+                    executarFastAction(valor);
+                    return;
+                }
+                else if (chave == 0x1A)
+                { // readPreset
+                    ComandoMotor p = lerPresetEEPROM(valor);
+                    setUIMessage("BA: L" + String(valor) + " S:" + String(p.step) + " V:" + String(p.vel));
+                    return;
+                }
+                else if (chave == 0x1B)
+                {
+                    int32_t custom_rep = (terceiro_str != NULL) ? atol(terceiro_str) : 1;
+                    executarFastActionRepeat(valor, custom_rep);
+                    return;
+                }
+                else if (chave == 0x1C)
+                { // saveToEEPROM
+                    if (terceiro_str != NULL)
+                    {
+                        uint8_t idx_eeprom = valor;
+                        uint8_t idx_sram = atol(terceiro_str);
+                        if (idx_sram < qtd_comandos_na_fila && idx_eeprom < MAX_PRESETS)
+                        {
+                            gravarPresetEEPROM(idx_eeprom, fila_comandos[idx_sram]);
+                            setUIMessage("C0: Slot " + String(idx_eeprom) + " Salvo");
+                        }
+                        else
+                        {
+                            setUIMessage("E1: Slot Invalido");
+                        }
+                    }
+                    return;
+                }
+
+                // Parâmetros de Linha (Comandos 10 a 15)
+                if (chave == 0x10)
+                {
+                    cmd.step = valor;
+                    cmd_valido = true;
+                }
+                else if (chave == 0x11)
+                {
+                    cmd.vel = valor;
+                }
+                else if (chave == 0x12)
+                {
+                    cmd.dir = valor;
+                }
+                else if (chave == 0x13)
+                {
+                    cmd.repeat = valor;
+                }
+                else if (chave == 0x14)
+                {
+                    cmd.pause_ms = valor;
+                }
+                else if (chave == 0x15)
+                {
+                    cmd.motor_id = valor;
+                }
+                else if (chave == 0x19)
+                { // writePreset (Vem atrelado a parâmetros de linha)
+                    if (cmd.step > 0 && valor < MAX_PRESETS)
+                    {
+                        gravarPresetEEPROM(valor, cmd);
+                        setUIMessage("B9: Preset " + String(valor) + " Gravado");
+                    }
+                    else
+                    {
+                        setUIMessage("E3: Erro Sintaxe");
+                    }
+                    return;
+                }
             }
         }
         par = strtok_r(NULL, ",", &ponteiro_virgula);
     }
 
-    // Se montou um comando válido de fila, adiciona
-    if(cmd_valido) {
-        if(qtd_comandos_na_fila < MAX_FILA) {
+    if (cmd_valido)
+    {
+        if (qtd_comandos_na_fila < MAX_FILA)
+        {
             fila_comandos[qtd_comandos_na_fila] = cmd;
             qtd_comandos_na_fila++;
-            setUIMessage("Add: M" + String(cmd.motor_id) + " Stp:" + String(cmd.step));
-        } else {
-            setUIMessage("Err: Fila Cheia");
+            setUIMessage("C1: Slot " + String(qtd_comandos_na_fila));
+        }
+        else
+        {
+            setUIMessage("E2: Fila Cheia");
         }
     }
 }
 
 // ==========================================
-// LOOP PRINCIPAL (RTOS-Like)
+// LOOP PRINCIPAL
 // ==========================================
-void loop() {
-    // 1. Tratamento do Teclado assíncrono (Debounce Simplificado)
-    if (keyPressFlag) {
-        _delay_ms(20); // Debounce de hardware (teclados matriciais tremem muito)
+void loop()
+{
+    if (keyPressFlag)
+    {
+        _delay_ms(20);
         char key = scanKeypadFast();
-        if (key) {
+        if (key)
+        {
             processKeyInput(key);
-            
-            // Trava para não ler repetições descontroladas enquanto segura
-            while((PINK >> 4) != 0x0F); 
+            while ((PINK >> 4) != 0x0F)
+                ;
             _delay_ms(20);
         }
         keyPressFlag = false;
     }
 
-    // 2. Interface LCD
     handleScroll();
-
-    // 3. Máquina de Estados dos Motores (Gerencia pausas e avanço da fila)
     manageSteppers();
 }
