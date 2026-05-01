@@ -5,8 +5,8 @@
  * Placa: Arduino Mega 2560
  * Função: Interface H8P, Parser de Comandos e Controle de Motores Dual Timer
  * * MAPEAMENTO DE HARDWARE (BAIXO NÍVEL):
- * - Motor 1: PORTA (PA0=22 DIR, PA1=23 PUL, PA2=24 EN) -> Usando Timer 1
- * - Motor 2: PORTA (PA3=25 DIR, PA4=26 PUL, PA5=27 EN) -> Usando Timer 3
+ * - Motor 1: PORTA (PA0=22 DIR, PA2=24 PUL, PA4=26 EN) -> Usando Timer 1
+ * - Motor 2: PORTC (PC7=30 DIR, PC5=32 PUL, PC3=34 EN) -> Usando Timer 3
  * - Teclado Matricial: PORTK -> Interrupção PCINT2
  *   * Fiação Física Invertida: Linhas (A11, A10, A9, A8) | Colunas (A15, A14, A13, A12)
  * - Display LCD 16x2 I2C: Pinos de Hardware SDA(20) e SCL(21)
@@ -79,15 +79,17 @@
 #include <util/delay.h>
 
 // ==========================================
-// DEFINIÇÕES DE PINOS DOS MOTORES (PORTA)
+// DEFINIÇÕES DE PINOS DOS MOTORES
 // ==========================================
+// Motor 1 (PORTA)
 #define M1_DIR_PIN PA0 // Pino 22
-#define M1_PUL_PIN PA1 // Pino 23
-#define M1_EN_PIN PA2  // Pino 24
+#define M1_PUL_PIN PA2 // Pino 24
+#define M1_EN_PIN  PA4 // Pino 26
 
-#define M2_DIR_PIN PA3 // Pino 25
-#define M2_PUL_PIN PA4 // Pino 26
-#define M2_EN_PIN PA5  // Pino 27
+// Motor 2 (PORTC)
+#define M2_DIR_PIN PC7 // Pino 30
+#define M2_PUL_PIN PC5 // Pino 32
+#define M2_EN_PIN  PC3 // Pino 34
 
 // ==========================================
 // ESTRUTURAS E EEPROM
@@ -214,12 +216,17 @@ void setup()
     lcd.backlight();
     updateLCD();
 
-    // 2. Configura Pinos dos Motores (PORTA) como SAÍDA e desliga (LOW - Enable ativo baixo normalmente, mas começa HIGH desabilitado)
-    DDRA |= (1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M1_EN_PIN) |
-            (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN);
+    // 2. Configura Pinos dos Motores (PORTA e PORTC) como SAÍDA e desliga (LOW - Enable ativo baixo normalmente, mas começa HIGH desabilitado)
+    DDRA |= (1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M1_EN_PIN);
+    DDRC |= (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN);
+    
     // Ativa pull-up no ENABLE (Motor Desabilitado inicialmente)
-    PORTA |= (1 << M1_EN_PIN) | (1 << M2_EN_PIN);
-    PORTA &= ~((1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN));
+    PORTA |= (1 << M1_EN_PIN);
+    PORTC |= (1 << M2_EN_PIN);
+    
+    // Garante que PUL e DIR iniciam em LOW
+    PORTA &= ~((1 << M1_PUL_PIN) | (1 << M1_DIR_PIN));
+    PORTC &= ~((1 << M2_PUL_PIN) | (1 << M2_DIR_PIN));
 
     cli();
     // 3. Configura Timer 1 (Motor 1) - Prescaler 8
@@ -337,9 +344,9 @@ ISR(TIMER3_COMPA_vect)
     {
         if (m2_passos_restantes > 0)
         {
-            PORTA |= (1 << M2_PUL_PIN);
+            PORTC |= (1 << M2_PUL_PIN);
             _delay_us(3);
-            PORTA &= ~(1 << M2_PUL_PIN);
+            PORTC &= ~(1 << M2_PUL_PIN);
             m2_passos_restantes--;
 
             if (m2_passos_restantes > 0)
@@ -519,10 +526,10 @@ void moverMotor2(uint32_t passos, uint32_t intervalo_us, uint8_t direcao)
     if (passos == 0 || m2_em_movimento)
         return;
     if (direcao)
-        PORTA |= (1 << M2_DIR_PIN);
+        PORTC |= (1 << M2_DIR_PIN);
     else
-        PORTA &= ~(1 << M2_DIR_PIN);
-    PORTA &= ~(1 << M2_EN_PIN);
+        PORTC &= ~(1 << M2_DIR_PIN);
+    PORTC &= ~(1 << M2_EN_PIN);
 
     cli();
     m2_passos_restantes = passos;
@@ -1247,7 +1254,7 @@ void interpretarComando(char *linha)
                     if (valor == 1)
                         PORTA &= ~(1 << M1_EN_PIN);
                     else if (valor == 2)
-                        PORTA &= ~(1 << M2_EN_PIN);
+                        PORTC &= ~(1 << M2_EN_PIN);
                     char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("B7: M%ld Habilitado"), valor); setUIMessage(msg);
                     return;
                 }
@@ -1256,7 +1263,7 @@ void interpretarComando(char *linha)
                     if (valor == 1)
                         PORTA |= (1 << M1_EN_PIN);
                     else if (valor == 2)
-                        PORTA |= (1 << M2_EN_PIN);
+                        PORTC |= (1 << M2_EN_PIN);
                     char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("B8: M%ld Desabilt."), valor); setUIMessage(msg);
                     return;
                 }

@@ -34,7 +34,7 @@
 
 ## Operational Constraints
 - **Serial Baud Rate**: 9600 bps.
-- **Motor Pins**: M1 (D2, D3, D6), M2 (D4, D5, D7).
+- **Motor Pins**: M1 (D22, D24, D26 no PORTA), M2 (D30, D32, D34 no PORTC).
 - **Keypad Pins**: PORTK (A8-A15).
 - **LCD Pins**: I2C (D20, D21).
 - **Safety**: 50µs pulse clamp e Atomic Stop (Interrupts disabled).

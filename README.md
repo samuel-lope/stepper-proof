@@ -6,8 +6,8 @@ Controle simultâneo e independente de alta precisão para dois motores de passo
 
 ### 1. Hardware Setup
 Conecte os motores e periféricos ao MCU (**Arduino Mega 2560**):
-- **Motor 1:** DIR(D2), PUL(D3), ENA(D6)
-- **Motor 2:** DIR(D4), PUL(D5), ENA(D7)
+- **Motor 1:** DIR(D22), PUL(D24), ENA(D26) — [PORTA]
+- **Motor 2:** DIR(D30), PUL(D32), ENA(D34) — [PORTC]
 - **Teclado 4x4:** Linhas(A8-A11), Colunas(A12-A15) — [PORTK]
 - **LCD 16x2 I2C:** SDA(D20), SCL(D21) — [Endereço 0x27]
 
