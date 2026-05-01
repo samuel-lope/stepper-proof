@@ -20,14 +20,14 @@
 // ==========================================
 // DEFINIÇÕES DE PINOS DOS MOTORES
 // ==========================================
-// Motor 1 (PORTA)
+// Motor 1 (PORTA e PORTB)
 #define M1_DIR_PIN PA0 // Pino 22
-#define M1_PUL_PIN PA2 // Pino 24
+#define M1_PUL_PIN PB5 // Pino 11 (OC1A)
 #define M1_EN_PIN  PA4 // Pino 26
 
-// Motor 2 (PORTC)
+// Motor 2 (PORTC e PORTE)
 #define M2_DIR_PIN PC7 // Pino 30
-#define M2_PUL_PIN PC5 // Pino 32
+#define M2_PUL_PIN PE3 // Pino 5 (OC3A)
 #define M2_EN_PIN  PC3 // Pino 34
 
 // ==========================================
@@ -64,8 +64,6 @@ uint32_t tempo_inicio_global_pause = 0;
 // --- Estado Motor 1 ---
 volatile uint32_t m1_passos_restantes = 0;
 volatile uint8_t m1_em_movimento = 0;
-volatile uint32_t m1_delay_ticks = 0;
-volatile uint32_t m1_interval_ticks = 0;
 bool m1_executando = false;
 uint8_t m1_indice_atual = 0;
 uint16_t m1_repeticoes_restantes = 0;
@@ -76,8 +74,6 @@ bool m1_comando_infinito = false;
 // --- Estado Motor 2 ---
 volatile uint32_t m2_passos_restantes = 0;
 volatile uint8_t m2_em_movimento = 0;
-volatile uint32_t m2_delay_ticks = 0;
-volatile uint32_t m2_interval_ticks = 0;
 bool m2_executando = false;
 uint8_t m2_indice_atual = 0;
 uint16_t m2_repeticoes_restantes = 0;
@@ -115,27 +111,33 @@ void setup()
 {
     Serial.begin(9600);
 
-    // 1. Configura Pinos dos Motores (PORTA e PORTC) como SAÍDA e desliga (LOW - Enable ativo baixo normalmente, mas começa HIGH desabilitado)
-    DDRA |= (1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M1_EN_PIN);
-    DDRC |= (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN);
+    // 1. Configura Pinos dos Motores como SAÍDA
+    DDRA |= (1 << M1_DIR_PIN) | (1 << M1_EN_PIN);
+    DDRB |= (1 << M1_PUL_PIN); // PB5 (Pin 11)
     
-    // Ativa pull-up no ENABLE (Motor Desabilitado inicialmente)
+    DDRC |= (1 << M2_DIR_PIN) | (1 << M2_EN_PIN);
+    DDRE |= (1 << M2_PUL_PIN); // PE3 (Pin 5)
+    
+    // Ativa pull-up no ENABLE (Motor Desabilitado inicialmente) e garante PUL/DIR em LOW
     PORTA |= (1 << M1_EN_PIN);
-    PORTC |= (1 << M2_EN_PIN);
+    PORTA &= ~(1 << M1_DIR_PIN);
+    PORTB &= ~(1 << M1_PUL_PIN);
     
-    // Garante que PUL e DIR iniciam em LOW
-    PORTA &= ~((1 << M1_PUL_PIN) | (1 << M1_DIR_PIN));
-    PORTC &= ~((1 << M2_PUL_PIN) | (1 << M2_DIR_PIN));
+    PORTC |= (1 << M2_EN_PIN);
+    PORTC &= ~(1 << M2_DIR_PIN);
+    PORTE &= ~(1 << M2_PUL_PIN);
 
     cli();
-    // 2. Configura Timer 1 (Motor 1) - Prescaler 8
-    TCCR1A = 0;
-    TCCR1B = (1 << CS11);
+    // 2. Configura Timer 1 (Motor 1) - Fast PWM Mode 14, Prescaler 8
+    // WGM13=1, WGM12=1, WGM11=1, WGM10=0
+    TCCR1A = (1 << WGM11);
+    TCCR1B = (1 << WGM13) | (1 << WGM12) | (1 << CS11);
     TCNT1 = 0;
 
-    // 3. Configura Timer 3 (Motor 2) - Prescaler 8
-    TCCR3A = 0;
-    TCCR3B = (1 << CS31);
+    // 3. Configura Timer 3 (Motor 2) - Fast PWM Mode 14, Prescaler 8
+    // WGM33=1, WGM32=1, WGM31=1, WGM30=0
+    TCCR3A = (1 << WGM31);
+    TCCR3B = (1 << WGM33) | (1 << WGM32) | (1 << CS31);
     TCNT3 = 0;
     sei();
 
@@ -151,105 +153,25 @@ void setup()
 // ==========================================
 ISR(TIMER1_COMPA_vect)
 {
-    if (m1_delay_ticks > 0)
+    m1_passos_restantes--;
+    if (m1_passos_restantes == 0)
     {
-        if (m1_delay_ticks > 65535)
-        {
-            OCR1A += 65535;
-            m1_delay_ticks -= 65535;
-        }
-        else
-        {
-            OCR1A += m1_delay_ticks;
-            m1_delay_ticks = 0;
-        }
-    }
-    else
-    {
-        if (m1_passos_restantes > 0)
-        {
-            PORTA |= (1 << M1_PUL_PIN);
-            _delay_us(1); // Pulso de ~1us
-            PORTA &= ~(1 << M1_PUL_PIN);
-            m1_passos_restantes--;
-
-            if (m1_passos_restantes > 0)
-            {
-                m1_delay_ticks = m1_interval_ticks;
-                if (m1_delay_ticks > 65535)
-                {
-                    OCR1A += 65535;
-                    m1_delay_ticks -= 65535;
-                }
-                else
-                {
-                    OCR1A += m1_delay_ticks;
-                    m1_delay_ticks = 0;
-                }
-            }
-            else
-            {
-                TIMSK1 &= ~(1 << OCIE1A);
-                m1_em_movimento = 0;
-            }
-        }
-        else
-        {
-            TIMSK1 &= ~(1 << OCIE1A);
-            m1_em_movimento = 0;
-        }
+        // Desconecta o pino OC1A do Timer (volta para operação normal de porta, que está em LOW)
+        TCCR1A &= ~(1 << COM1A1);
+        TIMSK1 &= ~(1 << OCIE1A);
+        m1_em_movimento = 0;
     }
 }
 
 ISR(TIMER3_COMPA_vect)
 {
-    if (m2_delay_ticks > 0)
+    m2_passos_restantes--;
+    if (m2_passos_restantes == 0)
     {
-        if (m2_delay_ticks > 65535)
-        {
-            OCR3A += 65535;
-            m2_delay_ticks -= 65535;
-        }
-        else
-        {
-            OCR3A += m2_delay_ticks;
-            m2_delay_ticks = 0;
-        }
-    }
-    else
-    {
-        if (m2_passos_restantes > 0)
-        {
-            PORTC |= (1 << M2_PUL_PIN);
-            _delay_us(1); // Pulso de ~1us
-            PORTC &= ~(1 << M2_PUL_PIN);
-            m2_passos_restantes--;
-
-            if (m2_passos_restantes > 0)
-            {
-                m2_delay_ticks = m2_interval_ticks;
-                if (m2_delay_ticks > 65535)
-                {
-                    OCR3A += 65535;
-                    m2_delay_ticks -= 65535;
-                }
-                else
-                {
-                    OCR3A += m2_delay_ticks;
-                    m2_delay_ticks = 0;
-                }
-            }
-            else
-            {
-                TIMSK3 &= ~(1 << OCIE3A);
-                m2_em_movimento = 0;
-            }
-        }
-        else
-        {
-            TIMSK3 &= ~(1 << OCIE3A);
-            m2_em_movimento = 0;
-        }
+        // Desconecta o pino OC3A do Timer
+        TCCR3A &= ~(1 << COM3A1);
+        TIMSK3 &= ~(1 << OCIE3A);
+        m2_em_movimento = 0;
     }
 }
 
@@ -378,20 +300,19 @@ void moverMotor1(uint32_t passos, uint32_t intervalo_us, uint8_t direcao)
     cli();
     m1_passos_restantes = passos;
     m1_em_movimento = 1;
-    m1_interval_ticks = intervalo_us * 2;
+    
+    uint32_t interval_ticks = intervalo_us * 2;
+    if (interval_ticks > 65535) interval_ticks = 65535; // Limite de 32.7ms
+    if (interval_ticks < 100) interval_ticks = 100;    // Limite de segurança (50µs)
 
-    m1_delay_ticks = m1_interval_ticks;
-    if (m1_delay_ticks > 65535)
-    {
-        OCR1A = TCNT1 + 65535;
-        m1_delay_ticks -= 65535;
-    }
-    else
-    {
-        OCR1A = TCNT1 + m1_delay_ticks;
-        m1_delay_ticks = 0;
-    }
+    ICR1 = interval_ticks - 1;
+    OCR1A = 4; // 2µs pulse width fixo
 
+    TCNT1 = ICR1 - 1; // Força overflow imediato para o primeiro pulso
+
+    // Conecta OC1A: Set HIGH no BOTTOM, Clear no Compare Match
+    TCCR1A |= (1 << COM1A1);
+    
     TIFR1 |= (1 << OCF1A);
     TIMSK1 |= (1 << OCIE1A);
     sei();
@@ -410,20 +331,19 @@ void moverMotor2(uint32_t passos, uint32_t intervalo_us, uint8_t direcao)
     cli();
     m2_passos_restantes = passos;
     m2_em_movimento = 1;
-    m2_interval_ticks = intervalo_us * 2;
+    
+    uint32_t interval_ticks = intervalo_us * 2;
+    if (interval_ticks > 65535) interval_ticks = 65535;
+    if (interval_ticks < 100) interval_ticks = 100;
 
-    m2_delay_ticks = m2_interval_ticks;
-    if (m2_delay_ticks > 65535)
-    {
-        OCR3A = TCNT3 + 65535;
-        m2_delay_ticks -= 65535;
-    }
-    else
-    {
-        OCR3A = TCNT3 + m2_delay_ticks;
-        m2_delay_ticks = 0;
-    }
+    ICR3 = interval_ticks - 1;
+    OCR3A = 4; // 2µs pulse width fixo
 
+    TCNT3 = ICR3 - 1; // Força overflow imediato para o primeiro pulso
+
+    // Conecta OC3A: Set HIGH no BOTTOM, Clear no Compare Match
+    TCCR3A |= (1 << COM3A1);
+    
     TIFR3 |= (1 << OCF3A);
     TIMSK3 |= (1 << OCIE3A);
     sei();
