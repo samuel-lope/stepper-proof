@@ -1,44 +1,27 @@
-# Stepper Proof v3.0 (Decoupled API Architecture)
-> Controle simultâneo e independente de dois motores de passo TB6600 via Web Serial API e arquitetura distribuída Core-Commander.
+# Stepper Proof (ATmega328P)
+> Controle simultâneo e independente de dois motores de passo TB6600 via Web Serial API.
 
 ## Core Files
-- [stepcontrol-v2/stepcontrol-v2.ino]: **Motor Core** (Mega 2560). Controle de motores via Timer1/Timer3, Fila SRAM e API H8P.
-- [stepcommander-v2/stepcommander-v2.ino]: **Commander** (328P). Interface LCD 1602, Teclado 4x4 e lógica de UI.
+- [stepcontrol/stepcontrol.ino]: **Motor Control** (ATmega328P). Controle de motores e API H8P.
 - [public/app.js]: Dashboard Web. Link serial via Web Serial API.
 - [docs/INTEGRATION.md]: Referência técnica do protocolo H8P e códigos de status.
-- [docs/STEPCOMMANDER.md]: Atalhos de teclado e pinagem da interface.
 
 ## Key Concepts
 
-### Decoupled Architecture
-- **Motor Core (Mega 2560)**: Focado em timing crítico. Zero UI, apenas API Serial.
-- **Commander (ATmega328P)**: Focado em interface humana. Traduz códigos B0-B9 para mensagens no LCD.
-- **Asynchronous Loop**: O Core usa buffers seriais não-bloqueantes para ler comandos enquanto executa motores.
-- **Zero Stutter**: O isolamento da interface I2C elimina atrasos nas rotinas de passo.
-
 ### H8P Protocol (Hex 8-bit Protocol)
 - **Format**: `Key:Value` hex strings separados por vírgula (ex: `10:1600`).
-- **Commands**: `01` (RUN), `02` (STOP), `10-15` (Motor params), `16-17` (Driver EN), `18-1C` (EEPROM).
+- **Commands**: `01` (RUN), `02` (STOP), `10-12` (Motor params).
 - **Status Codes**: 
   - `A0`: Inicializado
   - `B0`: Executando
   - `B5`: Fila Executada
-  - `E0-E4`: Erros
 
-### Physical Pinout (Motor Core)
-- **Motor 1**: D22 (DIR), D24 (PUL), D26 (EN) — [PORTA]
-- **Motor 2**: D30 (DIR), D32 (PUL), D34 (EN) — [PORTC]
-- **Serial Link**: Hardware Serial 0 (RX0/TX0) a 9600 bps.
-
-### Keyboard Shortcuts (Commander)
-- `* + #`: ENTER (Enviar buffer).
-- `# + A + N`: Save buffer to Core EEPROM slot N.
-- `* + A`: Insert minus sign (`-`).
-- `* + B`: Toggle Fast Act mode.
-- `* + 000`: SRAM Menu.
+### Physical Pinout (Motor Control)
+- **Motor 1**: D2 (DIR), D3 (PUL) — [PORTD]
+- **Motor 2**: D4 (DIR), D5 (PUL) — [PORTD]
 
 ## Operational Constraints
 - **Serial Baud Rate**: 9600 bps.
 - **Safe Clamp**: 50µs pulse clamp.
 - **Buffer**: 64 chars max.
-- **SRAM Queue**: 20 slots no Motor Core.
+- **SRAM Queue**: 20 slots.
