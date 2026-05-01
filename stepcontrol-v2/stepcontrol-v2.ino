@@ -1,79 +1,18 @@
 /*
  * =================================================================================
- * Stepper Commander - Controle Integrado Mega 2560 (Monolítico)
+ * Stepper Core - Controle de Motores Dedicado (Mega 2560)
  * =================================================================================
  * Placa: Arduino Mega 2560
- * Função: Interface H8P, Parser de Comandos e Controle de Motores Dual Timer
+ * Função: Motor Core, Fila SRAM, Interpretador H8P (API Desacoplada)
  * * MAPEAMENTO DE HARDWARE (BAIXO NÍVEL):
  * - Motor 1: PORTA (PA0=22 DIR, PA2=24 PUL, PA4=26 EN) -> Usando Timer 1
  * - Motor 2: PORTC (PC7=30 DIR, PC5=32 PUL, PC3=34 EN) -> Usando Timer 3
- * - Teclado Matricial: PORTK -> Interrupção PCINT2
- *   * Fiação Física Invertida: Linhas (A11, A10, A9, A8) | Colunas (A15, A14, A13, A12)
- * - Display LCD 16x2 I2C: Pinos de Hardware SDA(20) e SCL(21)
+ * * Comunicação Serial: RX0/TX0 a 9600 bps com o Commander (ATmega328P)
  * * =================================================================================
- * ÍNDICE DE CÓDIGOS HEXADECIMAIS (8-bits) - PROTOCOLO INTERNO H8P
- * =================================================================================
- * --- COMANDOS E PARÂMETROS (INPUT DO TECLADO / SERIAL) ---
- * 01 : run          (Inicia a execução da fila)
- * 02 : stop         (Parada de emergência e limpa fila)
- * 03 : repeatAll    (Booleano: 03:1 = ativa, 03:0 = desativa loop infinito)
- * 04 : pause        (Pausa global. Ex: 04:1000)
- * 10 : step         (Obrigatório - Quantidade de passos)
- * 11 : vel          (Obrigatório - Intervalo em microssegundos)
- * 12 : dir          (Opcional - Direção: 0 ou 1)
- * 13 : repeat       (Opcional - Repetições da linha. 0 = infinito)
- * 14 : pause        (Opcional - Pausa em ms após a linha)
- * 15 : motor        (Opcional - Motor Alvo 1 ou 2. Se vazio, motor 1)
- * 16 : enableMotor  (Habilita driver do motor. Ex: 16:1 ou 16:2 — EN LOW)
- * 17 : disableMotor (Desabilita driver do motor. Ex: 17:1 ou 17:2 — EN HIGH)
- * 18 : fastAction   (Executa preset EEPROM imediatamente. Ex: 18:0 a 18:9)
- * 19 : writePreset  (Grava preset na EEPROM. Ex: 19:2,10:800,11:300...)
- * 1A : readPreset   (Lê preset da EEPROM. Ex: 1A:2)
- * 1B : fastActionRep(Executa preset EEPROM com loop customizado. Ex: 1B:0:-4)
- * 1C : saveToEEPROM (Salva linha da SRAM na EEPROM. Ex: 1C:3:2)
- * * --- PRINCIPAIS ALERTAS E MENSAGENS NA UI (LCD / SERIAL) ---
- * A0 : Inicializado
- * B0 : Executando / Retomando...
- * B1 : Motor Parado
- * B2 : Pausa [X]ms
- * B3 : Pausa Global
- * B4 : Rep. ON
- * B5 : Fila Executada
- * B6 : Rep. OFF
- * B7 : M[X] Habilitado
- * B8 : M[X] Desabilt.
- * B9 : Preset [X] Gravado
- * BA : L[X] S:[X] V:[X] (Leitura de Preset)
- * BB : FastAct [idx]
- * BC : FastActRep [idx]
- * C0 : Slot [X] Salvo
- * C1 : Slot [X] (Fila SRAM)
- * D0 : M[X] L[X] (Debug Execução)
- * E0 : Err: Em Execucao
- * E1 : Err: Fila Vazia / Slot Invalido
- * E2 : Err: Fila Cheia
- * E3 : Err: Erro Sintaxe
- * E4 : Err: Preset Inv.
- * =================================================================================
- * MAPEAMENTO DE FUNÇÕES DO COMMANDER (TECLADO / UI)
- * =================================================================================
- * [IMPLEMENTADO] * + #          -> Enter (Enviar Comando da Linha)
- * [IMPLEMENTADO] * + C          -> Apagar Tudo (Clear Buffer)
- * [IMPLEMENTADO] * + D          -> Apagar Último (Backspace)
- * [IMPLEMENTADO] * + A          -> Inserir Sinal de Menos (-)
- * [IMPLEMENTADO] * + B          -> Alternar Modo Fast Act (Execução Direta de Macros)
- * [IMPLEMENTADO] # + A + N      -> Gravar Comando Atual na EEPROM (Slot N)
- * [IMPLEMENTADO] * + 000        -> Abrir Menu Interativo (SRAM Queue)
- * [IMPLEMENTADO] Teclas no Menu -> A/B (Navegar), # (Confirmar), * (Cancelar)
- * [IMPLEMENTADO] Num Fast Act   -> Teclas 0-9 executam slots EEPROM imediatamente
- * [IMPLEMENTADO] UI Multitarefa -> Scroll Adaptativo de textos e Timeout de 8s para Alertas
- * =================================================================================
  */
 
 #include <Arduino.h>
 #include <EEPROM.h>
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <util/delay.h>
@@ -147,53 +86,17 @@ uint32_t m2_tempo_inicio_pausa = 0;
 bool m2_comando_infinito = false;
 
 // ==========================================
-// VARIÁVEIS DA INTERFACE (UI)
+// BUFFER SERIAL
 // ==========================================
 #define MAX_INPUT_LEN 64
-#define MSG_MAX_LEN 64
-#define SCROLL_INTERVAL_BASE 500
-#define MSG_TIMEOUT_MS 8000
-
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-
-struct {
-    uint8_t lcdNeedsUpdate : 1;
-    uint8_t isMessageLong : 1;
-    uint8_t isFastActMode : 1;
-    uint8_t msgIsStatus : 1;
-    uint8_t menuActive : 1;
-    uint8_t menuSelection : 1;
-} systemFlags;
-
-char inputBuffer[MAX_INPUT_LEN + 1];
-uint8_t inputLen = 0;
-char lastCommand[MAX_INPUT_LEN + 1];
-char currentMsg[MSG_MAX_LEN + 1];
-
-unsigned long lastScrollTime = 0;
-uint16_t scrollIndexBottom = 0;
-unsigned long lastMsgTime = 0;
-uint8_t saveComboState = 0;
-
-// Variáveis do Teclado (PCINT)
-volatile bool keyPressFlag = false;
-char matrixKeys[4][4] = {
-    {'1', '2', '3', 'A'},
-    {'4', '5', '6', 'B'},
-    {'7', '8', '9', 'C'},
-    {'*', '0', '#', 'D'}};
+char serialBuffer[MAX_INPUT_LEN + 1];
+uint8_t serialBufferIdx = 0;
 
 // ==========================================
 // PROTÓTIPOS
 // ==========================================
-void updateLCD();
-void handleDisplayTasks();
-void setUIMessage(const char *msg);
-void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t idx);
 void interpretarComando(char *linha);
 void diagnosticoEEPROM();
-void processMenuKey(char key);
-void enterMenu();
 ComandoMotor parseLineToMotorCommand(char *linha);
 bool carregarProximoComando(uint8_t motor);
 void moverMotor1(uint32_t passos, uint32_t intervalo_us, uint8_t direcao);
@@ -203,6 +106,7 @@ void gravarPresetEEPROM(uint8_t idx, ComandoMotor cmd);
 ComandoMotor lerPresetEEPROM(uint8_t idx);
 void executarFastAction(uint8_t idx);
 void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed);
+void readSerial();
 
 // ==========================================
 // SETUP
@@ -211,12 +115,7 @@ void setup()
 {
     Serial.begin(9600);
 
-    // 1. Configura LCD
-    lcd.init();
-    lcd.backlight();
-    updateLCD();
-
-    // 2. Configura Pinos dos Motores (PORTA e PORTC) como SAÍDA e desliga (LOW - Enable ativo baixo normalmente, mas começa HIGH desabilitado)
+    // 1. Configura Pinos dos Motores (PORTA e PORTC) como SAÍDA e desliga (LOW - Enable ativo baixo normalmente, mas começa HIGH desabilitado)
     DDRA |= (1 << M1_PUL_PIN) | (1 << M1_DIR_PIN) | (1 << M1_EN_PIN);
     DDRC |= (1 << M2_PUL_PIN) | (1 << M2_DIR_PIN) | (1 << M2_EN_PIN);
     
@@ -229,50 +128,27 @@ void setup()
     PORTC &= ~((1 << M2_PUL_PIN) | (1 << M2_DIR_PIN));
 
     cli();
-    // 3. Configura Timer 1 (Motor 1) - Prescaler 8
+    // 2. Configura Timer 1 (Motor 1) - Prescaler 8
     TCCR1A = 0;
     TCCR1B = (1 << CS11);
     TCNT1 = 0;
 
-    // 4. Configura Timer 3 (Motor 2) - Prescaler 8
+    // 3. Configura Timer 3 (Motor 2) - Prescaler 8
     TCCR3A = 0;
     TCCR3B = (1 << CS31);
     TCNT3 = 0;
-
-    // 5. Configura Teclado no PORTK com Interrupção (PCINT2)
-    DDRK = 0x0F;
-    PORTK = 0xF0;
-
-    PCICR |= (1 << PCIE2);
-    PCMSK2 |= 0xF0;
     sei();
 
     inicializarPresetsEEPROM();
 
-    inputBuffer[0] = '\0';
-    lastCommand[0] = '\0';
-    strcpy_P(currentMsg, PSTR("Pronto."));
-
-    systemFlags.lcdNeedsUpdate = 1;
-    systemFlags.isMessageLong = 0;
-    systemFlags.isFastActMode = 0;
-    systemFlags.msgIsStatus = 0;
-    systemFlags.menuActive = 0;
-    systemFlags.menuSelection = 0;
-
     diagnosticoEEPROM();
 
-    setUIMessage("A0: Inicializado");
+    Serial.println(F("A0: Inicializado"));
 }
 
 // ==========================================
 // ROTINAS DE INTERRUPÇÃO (ISRs)
 // ==========================================
-ISR(PCINT2_vect)
-{
-    keyPressFlag = true;
-}
-
 ISR(TIMER1_COMPA_vect)
 {
     if (m1_delay_ticks > 0)
@@ -293,7 +169,7 @@ ISR(TIMER1_COMPA_vect)
         if (m1_passos_restantes > 0)
         {
             PORTA |= (1 << M1_PUL_PIN);
-            _delay_us(3);
+            _delay_us(1); // Pulso de ~1us
             PORTA &= ~(1 << M1_PUL_PIN);
             m1_passos_restantes--;
 
@@ -345,7 +221,7 @@ ISR(TIMER3_COMPA_vect)
         if (m2_passos_restantes > 0)
         {
             PORTC |= (1 << M2_PUL_PIN);
-            _delay_us(3);
+            _delay_us(1); // Pulso de ~1us
             PORTC &= ~(1 << M2_PUL_PIN);
             m2_passos_restantes--;
 
@@ -410,12 +286,12 @@ void executarFastAction(uint8_t idx)
 {
     if (m1_executando || m2_executando)
     {
-        setUIMessage("E0: Em Execucao");
+        Serial.println(F("E0: Em Execucao"));
         return;
     }
     if (idx >= MAX_PRESETS)
     {
-        setUIMessage("E4: Preset Inv.");
+        Serial.println(F("E4: Preset Inv."));
         return;
     }
 
@@ -437,7 +313,7 @@ void executarFastAction(uint8_t idx)
     if (m1_executando || m2_executando)
     {
         fila_iniciada = true;
-        char msg[20]; snprintf_P(msg, sizeof(msg), PSTR("BB: FastAct %d"), idx); setUIMessage(msg);
+        Serial.print(F("BB: FastAct ")); Serial.println(idx);
     }
 }
 
@@ -445,12 +321,12 @@ void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed)
 {
     if (m1_executando || m2_executando)
     {
-        setUIMessage("E0: Em Execucao");
+        Serial.println(F("E0: Em Execucao"));
         return;
     }
     if (idx >= MAX_PRESETS)
     {
-        setUIMessage("E4: Preset Inv.");
+        Serial.println(F("E4: Preset Inv."));
         return;
     }
 
@@ -482,7 +358,7 @@ void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed)
     if (m1_executando || m2_executando)
     {
         fila_iniciada = true;
-        char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("BC: FastActRep %d"), idx); setUIMessage(msg);
+        Serial.print(F("BC: FastActRep ")); Serial.println(idx);
     }
 }
 
@@ -575,7 +451,7 @@ bool carregarProximoComando(uint8_t motor)
         m1_repeticoes_restantes = (cmd.repeat > 0) ? (cmd.repeat - 1) : 0;
 
         moverMotor1(cmd.step, cmd.vel, cmd.dir);
-        Serial.print("D0: M1 L"); Serial.println(m1_indice_atual);
+        Serial.print(F("D0: M1 L")); Serial.println(m1_indice_atual);
         return true;
     }
     else
@@ -592,7 +468,7 @@ bool carregarProximoComando(uint8_t motor)
         m2_repeticoes_restantes = (cmd.repeat > 0) ? (cmd.repeat - 1) : 0;
 
         moverMotor2(cmd.step, cmd.vel, cmd.dir);
-        Serial.print("D0: M2 L"); Serial.println(m2_indice_atual);
+        Serial.print(F("D0: M2 L")); Serial.println(m2_indice_atual);
         return true;
     }
 }
@@ -604,7 +480,7 @@ void manageSteppers()
     {
         is_global_paused = true;
         tempo_inicio_global_pause = millis();
-        setUIMessage("B3: Pausa Global");
+        Serial.println(F("B3: Pausa Global"));
     }
 
     if (is_global_paused)
@@ -613,7 +489,7 @@ void manageSteppers()
         {
             is_global_paused = false;
             global_pause_ms = 0; // Consome a pausa
-            setUIMessage("B0: Retomando...");
+            Serial.println(F("B0: Retomando..."));
             // Retoma motores
             if (m1_executando && !carregarProximoComando(1))
                 m1_executando = false;
@@ -710,433 +586,9 @@ void manageSteppers()
         else
         {
             fila_iniciada = false;
-            setUIMessage("B5: Fila Executada");
+            Serial.println(F("B5: Fila Executada"));
         }
     }
-}
-
-// ==========================================
-// TECLADO E INTERFACE (UI)
-// ==========================================
-void setUIMessage(const char *msg)
-{
-    strncpy(currentMsg, msg, MSG_MAX_LEN);
-    currentMsg[MSG_MAX_LEN] = '\0';
-    systemFlags.isMessageLong = (strlen(currentMsg) > 16) ? 1 : 0;
-    systemFlags.msgIsStatus = 1; // Temporária
-    scrollIndexBottom = 0;
-    lastMsgTime = millis();
-    systemFlags.lcdNeedsUpdate = 1;
-    Serial.println(msg);
-}
-
-char scanKeypadFast()
-{
-    char key = 0;
-    PCICR &= ~(1 << PCIE2);
-    for (uint8_t r = 0; r < 4; r++)
-    {
-        PORTK = ~(1 << r) | 0xF0;
-        _delay_us(10);
-        uint8_t cols = PINK >> 4;
-        if (cols != 0x0F)
-        {
-            for (uint8_t c = 0; c < 4; c++)
-            {
-                if (!(cols & (1 << c)))
-                {
-                    key = matrixKeys[3 - r][3 - c];
-                    break;
-                }
-            }
-        }
-        if (key)
-            break;
-    }
-    PORTK = 0xF0;
-    PCIFR |= (1 << PCIF2);
-    PCICR |= (1 << PCIE2);
-    return key;
-}
-
-void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t idx)
-{
-    const uint8_t GAP = 4;
-    uint8_t totalLen = textLen + GAP;
-    uint16_t start = idx % totalLen;
-
-    for (uint8_t i = 0; i < 16; i++)
-    {
-        uint16_t pos = (start + i) % totalLen;
-        out[i] = (pos < textLen) ? text[pos] : ' ';
-    }
-    out[16] = '\0';
-}
-
-void updateLCD()
-{
-    if (systemFlags.menuActive)
-    {
-        char dispTop[17];
-        char dispBot[17];
-        if (systemFlags.menuSelection == 0)
-        {
-            snprintf_P(dispTop, 17, PSTR(">Executar Fila[%d]"), qtd_comandos_na_fila);
-            strcpy_P(dispBot, PSTR(" Limpar Fila    "));
-        }
-        else
-        {
-            snprintf_P(dispTop, 17, PSTR(" Executar Fila[%d]"), qtd_comandos_na_fila);
-            strcpy_P(dispBot, PSTR(">Limpar Fila    "));
-        }
-        lcd.setCursor(0, 0);
-        lcd.print(dispTop);
-        lcd.setCursor(0, 1);
-        lcd.print(dispBot);
-        return;
-    }
-
-    char dispTop[17];
-    char dispBot[17];
-
-    char prefix[11];
-    uint8_t prefixLen;
-
-    if (systemFlags.isFastActMode)
-    {
-        strcpy_P(prefix, PSTR("[F]Cmd:"));
-        prefixLen = 7;
-    }
-    else if (qtd_comandos_na_fila > 0)
-    {
-        snprintf_P(prefix, sizeof(prefix), PSTR("[%d]Cmd:"), qtd_comandos_na_fila);
-        prefixLen = strlen(prefix);
-    }
-    else
-    {
-        strcpy_P(prefix, PSTR("Cmd:"));
-        prefixLen = 4;
-    }
-
-    uint8_t maxInLen = 16 - prefixLen;
-    strncpy(dispTop, prefix, 16);
-    dispTop[prefixLen] = '\0';
-
-    if (inputLen <= maxInLen)
-    {
-        strncat(dispTop, inputBuffer, maxInLen);
-        uint8_t total = strlen(dispTop);
-        while (total < 16)
-            dispTop[total++] = ' ';
-        dispTop[16] = '\0';
-    }
-    else
-    {
-        strncat(dispTop, inputBuffer + (inputLen - maxInLen), maxInLen);
-        dispTop[16] = '\0';
-    }
-
-    uint8_t msgLen = strlen(currentMsg);
-    if (msgLen <= 16)
-    {
-        strncpy(dispBot, currentMsg, 16);
-        uint8_t total = msgLen;
-        while (total < 16)
-            dispBot[total++] = ' ';
-        dispBot[16] = '\0';
-    }
-    else
-    {
-        scrollTextToBuffer(dispBot, currentMsg, msgLen, scrollIndexBottom);
-    }
-
-    lcd.setCursor(0, 0);
-    lcd.print(dispTop);
-    lcd.setCursor(0, 1);
-    lcd.print(dispBot);
-}
-
-void handleDisplayTasks()
-{
-    unsigned long now = millis();
-
-    if (systemFlags.msgIsStatus && (now - lastMsgTime >= MSG_TIMEOUT_MS))
-    {
-        if (systemFlags.isFastActMode)
-            strcpy_P(currentMsg, PSTR("[FAST ACT]"));
-        else
-            strcpy_P(currentMsg, PSTR("Pronto."));
-            
-        systemFlags.isMessageLong = 0;
-        systemFlags.msgIsStatus = 0;
-        scrollIndexBottom = 0;
-        systemFlags.lcdNeedsUpdate = 1;
-    }
-
-    if (systemFlags.isMessageLong)
-    {
-        uint8_t msgLen = strlen(currentMsg);
-        uint16_t interval = (uint16_t)max(200, SCROLL_INTERVAL_BASE - (int)(msgLen * 10));
-        if (now - lastScrollTime >= interval)
-        {
-            lastScrollTime = now;
-            scrollIndexBottom++;
-            systemFlags.lcdNeedsUpdate = 1;
-        }
-    }
-
-    if (systemFlags.lcdNeedsUpdate)
-    {
-        updateLCD();
-        systemFlags.lcdNeedsUpdate = 0;
-    }
-}
-
-void enterMenu()
-{
-    systemFlags.menuActive = 1;
-    systemFlags.menuSelection = 0;
-    systemFlags.lcdNeedsUpdate = 1;
-}
-
-void processMenuKey(char key)
-{
-    if (key == 'A' || key == 'B')
-    {
-        systemFlags.menuSelection = !systemFlags.menuSelection;
-    }
-    else if (key == '#')
-    {
-        systemFlags.menuActive = 0;
-        if (systemFlags.menuSelection == 0)
-        {
-            char cmdBuf[10];
-            strcpy(cmdBuf, "01");
-            interpretarComando(cmdBuf);
-        }
-        else
-        {
-            qtd_comandos_na_fila = 0;
-            setUIMessage("SRAM Limpa!");
-            Serial.println(F("C1:0"));
-        }
-    }
-    else if (key == '*')
-    {
-        systemFlags.menuActive = 0;
-        setUIMessage("Menu Fechado");
-    }
-    systemFlags.lcdNeedsUpdate = 1;
-}
-
-ComandoMotor parseLineToMotorCommand(char *linha)
-{
-    // Parsea uma linha no formato H8P e retorna o struct correspondente.
-    char temp[MAX_INPUT_LEN + 1];
-    
-    // Remove espaços enquanto copia para temp
-    char *src = linha;
-    char *dst = temp;
-    int len = 0;
-    while (*src && len < MAX_INPUT_LEN)
-    {
-        if (*src != ' ')
-        {
-            *dst++ = *src;
-            len++;
-        }
-        src++;
-    }
-    *dst = '\0';
-    
-    ComandoMotor cmd = {0, 0, 0, 1, 0, 1};
-    char *ponteiro_virgula;
-    char *par = strtok_r(temp, ",", &ponteiro_virgula);
-
-    while (par != NULL)
-    {
-        char *ponteiro_dois_pontos;
-        char *chave_str = strtok_r(par, ":", &ponteiro_dois_pontos);
-        char *valor_str = strtok_r(NULL, ":", &ponteiro_dois_pontos);
-
-        if (chave_str != NULL && valor_str != NULL)
-        {
-            uint8_t chave = (uint8_t)strtol(chave_str, NULL, 16);
-            int32_t valor = atol(valor_str);
-
-            switch (chave)
-            {
-            case 0x10: cmd.step = (uint32_t)valor; break;
-            case 0x11: cmd.vel = (uint32_t)valor; break;
-            case 0x12: cmd.dir = (uint8_t)valor; break;
-            case 0x13: cmd.repeat = (uint16_t)valor; break;
-            case 0x14: cmd.pause_ms = (uint32_t)valor; break;
-            case 0x15: cmd.motor_id = (uint8_t)valor; break;
-            }
-        }
-        par = strtok_r(NULL, ",", &ponteiro_virgula);
-    }
-    return cmd;
-}
-
-void processKeyInput(char key)
-{
-    if (systemFlags.menuActive)
-    {
-        processMenuKey(key);
-        return;
-    }
-
-    if (systemFlags.isFastActMode && isDigit(key))
-    {
-        executarFastAction(key - '0');
-        return;
-    }
-
-    if (saveComboState == 2)
-    {
-        if (isDigit(key))
-        {
-            saveComboState = 0;
-            if (inputLen > 0)
-            {
-                ComandoMotor cmdToSave = parseLineToMotorCommand(inputBuffer);
-                gravarPresetEEPROM(key - '0', cmdToSave);
-                char msg[20];
-                snprintf_P(msg, sizeof(msg), PSTR("Slot %d Salvo!"), key - '0');
-                setUIMessage(msg);
-                inputLen = 0;
-                inputBuffer[0] = '\0';
-            }
-            else setUIMessage("Buffer Vazio!");
-            systemFlags.lcdNeedsUpdate = 1;
-            return;
-        }
-        else saveComboState = 0;
-    }
-
-    bool hasStar = (inputLen > 0 && inputBuffer[inputLen - 1] == ':');
-    bool hasComma = (inputLen > 0 && inputBuffer[inputLen - 1] == ',');
-
-    if (hasStar)
-    {
-        if (key == '#')
-        {
-            inputBuffer[--inputLen] = '\0';
-            if (inputLen == 0 && lastCommand[0] != '\0')
-            {
-                strncpy(inputBuffer, lastCommand, MAX_INPUT_LEN);
-                inputLen = strlen(inputBuffer);
-            }
-            else if (inputLen > 0)
-            {
-                strncpy(lastCommand, inputBuffer, MAX_INPUT_LEN);
-                lastCommand[MAX_INPUT_LEN] = '\0';
-            }
-
-            if (inputLen > 0)
-            {
-                char cmdBuf[MAX_INPUT_LEN + 1];
-                strncpy(cmdBuf, inputBuffer, MAX_INPUT_LEN);
-                cmdBuf[MAX_INPUT_LEN] = '\0';
-                interpretarComando(cmdBuf);
-            }
-            inputLen = 0;
-            inputBuffer[0] = '\0';
-        }
-        else if (key == 'B')
-        {
-            inputBuffer[--inputLen] = '\0';
-            systemFlags.isFastActMode = !systemFlags.isFastActMode;
-            setUIMessage(systemFlags.isFastActMode ? "FAST ACT ON" : "FAST ACT OFF");
-        }
-        else if (key == 'C')
-        {
-            inputLen = 0;
-            inputBuffer[0] = '\0';
-        }
-        else if (key == 'D')
-        {
-            if (inputLen >= 2)
-                inputBuffer[inputLen -= 2] = '\0';
-            else
-            {
-                inputLen = 0;
-                inputBuffer[0] = '\0';
-            }
-        }
-        else if (key == 'A')
-        {
-            inputBuffer[--inputLen] = '\0';
-            if (inputLen < MAX_INPUT_LEN)
-            {
-                inputBuffer[inputLen++] = '-';
-                inputBuffer[inputLen] = '\0';
-            }
-            else setUIMessage("LIMITE!");
-        }
-        else if (key == '*')
-        {
-            if (inputLen < MAX_INPUT_LEN)
-            {
-                inputBuffer[inputLen++] = ':';
-                inputBuffer[inputLen] = '\0';
-            }
-            else setUIMessage("LIMITE!");
-        }
-        else if (isDigit(key))
-        {
-            if (inputLen < MAX_INPUT_LEN)
-            {
-                inputBuffer[inputLen++] = key;
-                inputBuffer[inputLen] = '\0';
-            }
-            else setUIMessage("LIMITE!");
-        }
-        else
-        {
-            if (inputLen < MAX_INPUT_LEN)
-            {
-                inputBuffer[inputLen++] = key;
-                inputBuffer[inputLen] = '\0';
-            }
-            else setUIMessage("LIMITE!");
-        }
-    }
-    else if (hasComma && key == 'A')
-    {
-        inputBuffer[--inputLen] = '\0';
-        saveComboState = 2;
-        systemFlags.lcdNeedsUpdate = 1;
-        return;
-    }
-    else
-    {
-        char toAppend = 0;
-        if (key == '#') toAppend = ',';
-        else if (key == '*') toAppend = ':';
-        else toAppend = key;
-
-        if (toAppend)
-        {
-            if (inputLen < MAX_INPUT_LEN)
-            {
-                inputBuffer[inputLen++] = toAppend;
-                inputBuffer[inputLen] = '\0';
-            }
-            else setUIMessage("LIMITE!");
-        }
-    }
-
-    if (inputLen == 4 && inputBuffer[0] == ':' && inputBuffer[1] == '0' &&
-        inputBuffer[2] == '0' && inputBuffer[3] == '0')
-    {
-        inputLen = 0;
-        inputBuffer[0] = '\0';
-        enterMenu();
-    }
-
-    systemFlags.lcdNeedsUpdate = 1;
 }
 
 // ==========================================
@@ -1156,6 +608,17 @@ void interpretarComando(char *linha)
         src++;
     }
     *dst = '\0';
+
+    if (strlen(linha) == 0) return;
+
+    // COMANDOS DE INTERFACE / COMMANDER
+    // O Commander pode mandar comandos como apagar fila (via C)
+    if (strcmp(linha, "CLEAR") == 0)
+    {
+        qtd_comandos_na_fila = 0;
+        Serial.println(F("C1:0"));
+        return;
+    }
 
     ComandoMotor cmd = {0, 0, 0, 1, 0, 1};
     bool cmd_valido = false;
@@ -1193,16 +656,16 @@ void interpretarComando(char *linha)
                         if (m1_executando || m2_executando)
                         {
                             fila_iniciada = true;
-                            setUIMessage("B0: Executando");
+                            Serial.println(F("B0: Executando"));
                         }
                     }
                     else if (m1_executando || m2_executando)
                     {
-                        setUIMessage("E0: Em Execucao");
+                        Serial.println(F("E0: Em Execucao"));
                     }
                     else
                     {
-                        setUIMessage("E1: Fila Vazia");
+                        Serial.println(F("E1: Fila Vazia"));
                     }
                     return;
                 }
@@ -1227,26 +690,26 @@ void interpretarComando(char *linha)
                     }
                     fila_iniciada = false;
                     sei();
-                    setUIMessage("B1: Motor Parado");
+                    Serial.println(F("B1: Motor Parado"));
                     Serial.println(F("C1:0"));
                     return;
                 }
             }
             else
             {
-                int32_t valor = atol(valor_str); // Usado int32 para suportar valores negativos em 1B
+                int32_t valor = atol(valor_str);
 
                 // Comandos Globais
                 if (chave == 0x03)
                 {
                     repetir_todas_linhas = (valor == 1);
-                    setUIMessage(repetir_todas_linhas ? "B4: Rep. ON" : "B6: Rep. OFF");
+                    Serial.println(repetir_todas_linhas ? F("B4: Rep. ON") : F("B6: Rep. OFF"));
                     return;
                 }
                 else if (chave == 0x04)
                 {
                     global_pause_ms = valor;
-                    char msg[20]; snprintf_P(msg, sizeof(msg), PSTR("B2: Pausa %ldms"), valor); setUIMessage(msg);
+                    Serial.print(F("B2: Pausa ")); Serial.print(valor); Serial.println(F("ms"));
                     return;
                 }
                 else if (chave == 0x16)
@@ -1255,7 +718,7 @@ void interpretarComando(char *linha)
                         PORTA &= ~(1 << M1_EN_PIN);
                     else if (valor == 2)
                         PORTC &= ~(1 << M2_EN_PIN);
-                    char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("B7: M%ld Habilitado"), valor); setUIMessage(msg);
+                    Serial.print(F("B7: M")); Serial.print(valor); Serial.println(F(" Habilitado"));
                     return;
                 }
                 else if (chave == 0x17)
@@ -1264,7 +727,7 @@ void interpretarComando(char *linha)
                         PORTA |= (1 << M1_EN_PIN);
                     else if (valor == 2)
                         PORTC |= (1 << M2_EN_PIN);
-                    char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("B8: M%ld Desabilt."), valor); setUIMessage(msg);
+                    Serial.print(F("B8: M")); Serial.print(valor); Serial.println(F(" Desabilt."));
                     return;
                 }
                 else if (chave == 0x18)
@@ -1275,7 +738,9 @@ void interpretarComando(char *linha)
                 else if (chave == 0x1A)
                 { // readPreset
                     ComandoMotor p = lerPresetEEPROM(valor);
-                    char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("BA: L%ld S:%lu V:%lu"), valor, p.step, p.vel); setUIMessage(msg);
+                    Serial.print(F("BA: L")); Serial.print(valor);
+                    Serial.print(F(" S:")); Serial.print(p.step);
+                    Serial.print(F(" V:")); Serial.println(p.vel);
                     return;
                 }
                 else if (chave == 0x1B)
@@ -1293,11 +758,11 @@ void interpretarComando(char *linha)
                         if (idx_sram < qtd_comandos_na_fila && idx_eeprom < MAX_PRESETS)
                         {
                             gravarPresetEEPROM(idx_eeprom, fila_comandos[idx_sram]);
-                            char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("C0: Slot %d Salvo"), idx_eeprom); setUIMessage(msg);
+                            Serial.print(F("C0: Slot ")); Serial.print(idx_eeprom); Serial.println(F(" Salvo"));
                         }
                         else
                         {
-                            setUIMessage("E1: Slot Invalido");
+                            Serial.println(F("E1: Slot Invalido"));
                         }
                     }
                     return;
@@ -1344,9 +809,6 @@ void interpretarComando(char *linha)
         if (cmd_valido && eeprom_slot < MAX_PRESETS)
         {
             gravarPresetEEPROM(eeprom_slot, cmd);
-            char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("Preset %d Salvo"), eeprom_slot);
-            setUIMessage(msg);
-            
             Serial.print(F("B9:")); Serial.print(eeprom_slot);
             Serial.print(F(",10:")); Serial.print(cmd.step);
             Serial.print(F(",11:")); Serial.print(cmd.vel);
@@ -1357,7 +819,7 @@ void interpretarComando(char *linha)
         }
         else
         {
-            setUIMessage("E3: Erro Sintaxe");
+            Serial.println(F("E3: Erro Sintaxe"));
         }
         return; // Não adiciona à fila SRAM
     }
@@ -1370,11 +832,10 @@ void interpretarComando(char *linha)
             Serial.print(F("C0:")); Serial.println(qtd_comandos_na_fila);
             qtd_comandos_na_fila++;
             Serial.print(F("C1:")); Serial.println(qtd_comandos_na_fila);
-            char msg[20]; snprintf_P(msg, sizeof(msg), PSTR("Slot %d (Fila)"), qtd_comandos_na_fila); setUIMessage(msg);
         }
         else
         {
-            setUIMessage("E2: Fila Cheia");
+            Serial.println(F("E2: Fila Cheia"));
         }
     }
 }
@@ -1412,22 +873,30 @@ void diagnosticoEEPROM()
     Serial.println(F("--------------------"));
 }
 
+void readSerial()
+{
+    while (Serial.available() > 0)
+    {
+        char c = Serial.read();
+        
+        if (c == '\n' || c == '\r')
+        {
+            if (serialBufferIdx > 0)
+            {
+                serialBuffer[serialBufferIdx] = '\0';
+                interpretarComando(serialBuffer);
+                serialBufferIdx = 0;
+            }
+        }
+        else if (serialBufferIdx < MAX_INPUT_LEN)
+        {
+            serialBuffer[serialBufferIdx++] = c;
+        }
+    }
+}
+
 void loop()
 {
-    if (keyPressFlag)
-    {
-        _delay_ms(20);
-        char key = scanKeypadFast();
-        if (key)
-        {
-            processKeyInput(key);
-            while ((PINK >> 4) != 0x0F)
-                ;
-            _delay_ms(20);
-        }
-        keyPressFlag = false;
-    }
-
-    handleDisplayTasks();
+    readSerial();
     manageSteppers();
 }

@@ -1,41 +1,44 @@
-# Stepper Proof v3.0 (Monolithic ATmega2560)
-> Controle simultâneo e independente de dois motores de passo TB6600 via Web Serial API e interface física integrada.
+# Stepper Proof v3.0 (Decoupled API Architecture)
+> Controle simultâneo e independente de dois motores de passo TB6600 via Web Serial API e arquitetura distribuída Core-Commander.
 
 ## Core Files
-- [stepcontrol-v2/stepcontrol-v2.ino]: Firmware Monolítico Principal (C++). Timer1 Dual-Channel. Integração UI + Core.
-- [public/app.js]: Dashboard Web logic. Serial link, H8P parser, live telemetry.
-- [docs/INTEGRATION.md]: Technical API Reference. Protocolo H8P e desacoplamento lógico.
-- [docs/STEPCOMMANDER.md]: Atalhos de teclado, pinagem Mega 2560 e feedback LCD.
+- [stepcontrol-v2/stepcontrol-v2.ino]: **Motor Core** (Mega 2560). Controle de motores via Timer1/Timer3, Fila SRAM e API H8P.
+- [stepcommander-v2/stepcommander-v2.ino]: **Commander** (328P). Interface LCD 1602, Teclado 4x4 e lógica de UI.
+- [public/app.js]: Dashboard Web. Link serial via Web Serial API.
+- [docs/INTEGRATION.md]: Referência técnica do protocolo H8P e códigos de status.
+- [docs/STEPCOMMANDER.md]: Atalhos de teclado e pinagem da interface.
 
 ## Key Concepts
 
-### Monolithic Architecture
-- **Single MCU**: Tudo roda em um Arduino Mega 2560.
-- **Virtual Serial**: Interface e Core se comunicam internamente via `interpretarComando(char*)`.
-- **Non-blocking**: UI baseada em `millis` para não afetar o timing dos motores.
-- **Efficiency**: Elimina a necessidade de SoftwareSerial e latências físicas.
+### Decoupled Architecture
+- **Motor Core (Mega 2560)**: Focado em timing crítico. Zero UI, apenas API Serial.
+- **Commander (ATmega328P)**: Focado em interface humana. Traduz códigos B0-B9 para mensagens no LCD.
+- **Asynchronous Loop**: O Core usa buffers seriais não-bloqueantes para ler comandos enquanto executa motores.
+- **Zero Stutter**: O isolamento da interface I2C elimina atrasos nas rotinas de passo.
 
 ### H8P Protocol (Hex 8-bit Protocol)
 - **Format**: `Key:Value` hex strings separados por vírgula (ex: `10:1600`).
 - **Commands**: `01` (RUN), `02` (STOP), `10-15` (Motor params), `16-17` (Driver EN), `18-1C` (EEPROM).
-- **Parsing**: Deferred parsing para o comando `19:`, permitindo salvamento dinâmico.
+- **Status Codes**: 
+  - `A0`: Inicializado
+  - `B0`: Executando
+  - `B5`: Fila Executada
+  - `E0-E4`: Erros
 
-### Response Routing (Logic separation)
-- **Broadcast**: Respostas de estado global (B0, B1, etc) enviadas para USB e LCD (traduzidas).
-- **USB-only**: Telemetria bruta de alta frequência (`D0`, `C1`) para evitar bloqueio do I2C/LCD.
-- **LCD-friendly**: Traduções amigáveis via `setUIMessage()` ignorando telemetria pesada.
+### Physical Pinout (Motor Core)
+- **Motor 1**: D22 (DIR), D24 (PUL), D26 (EN) — [PORTA]
+- **Motor 2**: D30 (DIR), D32 (PUL), D34 (EN) — [PORTC]
+- **Serial Link**: Hardware Serial 0 (RX0/TX0) a 9600 bps.
 
-### Keyboard Shortcuts (v3.0)
+### Keyboard Shortcuts (Commander)
 - `* + #`: ENTER (Enviar buffer).
-- `# + A + N`: Save buffer to EEPROM slot N.
+- `# + A + N`: Save buffer to Core EEPROM slot N.
 - `* + A`: Insert minus sign (`-`).
-- `* + B`: Toggle Fast Act mode (Execução rápida de macros).
-- `* + 000`: SRAM Menu (Navegação A/B, Confirma #, Cancela *).
+- `* + B`: Toggle Fast Act mode.
+- `* + 000`: SRAM Menu.
 
 ## Operational Constraints
 - **Serial Baud Rate**: 9600 bps.
-- **Motor Pins**: M1 (D22, D24, D26 no PORTA), M2 (D30, D32, D34 no PORTC).
-- **Keypad Pins**: PORTK (A8-A15).
-- **LCD Pins**: I2C (D20, D21).
-- **Safety**: 50µs pulse clamp e Atomic Stop (Interrupts disabled).
-- **Buffer**: 64 chars max. Exibe "LIMITE!" no LCD em caso de overflow.
+- **Safe Clamp**: 50µs pulse clamp.
+- **Buffer**: 64 chars max.
+- **SRAM Queue**: 20 slots no Motor Core.

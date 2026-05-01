@@ -1,57 +1,28 @@
 /*
  * =================================================================================
- * Stepper Commander - Interface H8P (v2.2 - SRAM Queue)
+ * Stepper Commander v3.0 - Interface H8P (Arquitetura Desacoplada)
  * =================================================================================
+ * Board: Arduino Uno / Nano / Nano Every (Atmega328P)
+ * Função: Interface de Usuário (LCD 16x2 + Keypad 4x4)
+ * Funcao: Interface de Usuario (LCD 16x2 + Keypad 4x4)
+ * Comunicacao: Serial Link (H8P Protocol) com o Motor Core (Mega 2560)
  *
- * Board: Arduino Uno / Nano (Atmega328P)
- * Função: Envio de comandos H8P e recebimento de alertas do controlador
- * principal
+ * Arquitetura Distribuida:
+ * - O Commander isola o processamento de UI para nao interferir nos motores.
+ * - Recebe codigos de status (B-Codes) e traduz para mensagens no LCD.
+ * - Mantem uma fila SRAM local para pre-enfileiramento de comandos.
  *
- * Arquitetura:
- * - Leitura Serial Não-Bloqueante: char-por-char via buffer estático C.
- * - Multitarefa Cooperativa: millis() como timer base para todos os processos.
- * - RAM Otimizada: char[] fixos no lugar de String (elimina heap
- * fragmentation). Uso de PROGMEM/PSTR() para strings constantes e bitfields
- * para flags.
+ * Mapeamento de Hardware:
+ * - Teclado 4x4: Linhas (D5, D4, D3, D2), Colunas (D9, D8, D7, D6)
+ * - LCD 16x2 I2C: SDA (A4), SCL (A5)
+ * - SoftwareSerial: RX (D10), TX (D11) -> Conecta ao RX0/TX0 do Mega
  *
- * Melhorias v2.1 aplicadas:
- * - [OPT-1] Leitura EEPROM com EEPROM.get() (tipo-seguro).
- * - [OPT-2] scrollIndexBottom promovido para uint16_t (evita overflow 255→0).
- * - [OPT-3] Timeout de mensagem de status (restaura "Pronto." após
- * inatividade).
- * - [OPT-4] Validação de slot EEPROM virgem (0xFF), evita envio de lixo serial.
- * - [OPT-5] String substituída por char[] fixo (elimina fragmentação de heap).
- * - [OPT-6] Numeração de seções corrigida (era "10", agora "9").
- * - [OPT-7] Diagnóstico de slots EEPROM no setup() via Serial.
- * - [OPT-8] Scroll adaptativo: velocidade proporcional ao comprimento da
- * mensagem.
+ * Multitarefa Cooperativa: millis() como timer base para todos os processos.
+ * RAM Otimizada: char[] fixos no lugar de String (elimina fragmentacao de heap).
  *
- * Melhorias v2.2 aplicadas:
- * - [FEAT-1] Buffers ampliados para 64 chars (MAX_INPUT_LEN, SERIAL_BUF_SIZE,
- * MSG_MAX_LEN).
- * - [FEAT-2] Aviso "LIMITE!" no LCD ao atingir teto de caracteres (sem travar
- * display).
- * - [FEAT-3] Fila SRAM local: 5 slots de comandos de motor, persistente até
- * clear.
- * - [FEAT-4] Menu interativo via atalho *+000 (Enviar MCU / Limpar SRAM).
- * - [FEAT-5] Detecção automática de comandos de motor (10:/11:) para
- * enfileiramento.
- * - [FEAT-6] TM1638 comentado por padrão (economia de Flash/SRAM).
- *
- * Periféricos:
- * - Teclado Matricial 4x4 (Linhas 5,4,3,2 / Colunas 9,8,7,6)
- * - Display LCD 16x2 I2C (SDA=A4, SCL=A5, Endereço: 0x27)
- * - SoftwareSerial (RX=10, TX=11) -> Conecta ao TX/RX da placa Principal
- * - Opcional: TM1638plus no barramento SPI emulado por software (A0, A1, A2)
- *
- * Mapeamento de Teclas:
- * - '*'      -> ':'          | '#'      -> ','
- * - '* + #'  -> ENTER        | '* + C'  -> Clear
- * - '* + D'  -> Backspace    | '* + A'  -> Inserir '-'
- * - '* + B'  -> Toggle Fast Act Mode
- * - '* + A + C + [0-9]' -> Salvar comando no Slot EEPROM
- * - '* + 0 + 0 + 0' -> Menu Fila SRAM
- * - No modo Fast Act: [0-9] executa o Slot correspondente
+ * Historico de Melhorias:
+ * - [OPT] Leitura EEPROM tipo-seguro, timeout de status, scroll adaptativo.
+ * - [FEAT] Buffers de 64 chars, Fila SRAM local, Menu interativo *+000.
  * =================================================================================
  */
 
