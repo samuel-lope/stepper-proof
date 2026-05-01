@@ -7,7 +7,8 @@
  * * MAPEAMENTO DE HARDWARE (BAIXO NÍVEL):
  * - Motor 1: PORTA (PA0=22 DIR, PA1=23 PUL, PA2=24 EN) -> Usando Timer 1
  * - Motor 2: PORTA (PA3=25 DIR, PA4=26 PUL, PA5=27 EN) -> Usando Timer 3
- * - Teclado Matricial: PORTK (Linhas: A8-A11 | Colunas: A12-A15) -> Interrupção PCINT2
+ * - Teclado Matricial: PORTK -> Interrupção PCINT2
+ *   * Fiação Física Invertida: Linhas (A11, A10, A9, A8) | Colunas (A15, A14, A13, A12)
  * - Display LCD 16x2 I2C: Pinos de Hardware SDA(20) e SCL(21)
  * * =================================================================================
  * ÍNDICE DE CÓDIGOS HEXADECIMAIS (8-bits) - PROTOCOLO INTERNO H8P
@@ -30,14 +31,29 @@
  * 1A : readPreset   (Lê preset da EEPROM. Ex: 1A:2)
  * 1B : fastActionRep(Executa preset EEPROM com loop customizado. Ex: 1B:0:-4)
  * 1C : saveToEEPROM (Salva linha da SRAM na EEPROM. Ex: 1C:3:2)
- * * --- PRINCIPAIS ALERTAS E MENSAGENS NA UI (LCD) ---
- * A0 : Sis Inicializado
- * B0 : Executando...
+ * * --- PRINCIPAIS ALERTAS E MENSAGENS NA UI (LCD / SERIAL) ---
+ * A0 : Inicializado
+ * B0 : Executando / Retomando...
  * B1 : Motor Parado
+ * B2 : Pausa [X]ms
+ * B3 : Pausa Global
+ * B4 : Rep. ON
  * B5 : Fila Executada
+ * B6 : Rep. OFF
+ * B7 : M[X] Habilitado
+ * B8 : M[X] Desabilt.
+ * B9 : Preset [X] Gravado
+ * BA : L[X] S:[X] V:[X] (Leitura de Preset)
+ * BB : FastAct [idx]
+ * BC : FastActRep [idx]
+ * C0 : Slot [X] Salvo
+ * C1 : Slot [X] (Fila SRAM)
+ * D0 : M[X] L[X] (Debug Execução)
  * E0 : Err: Em Execucao
- * E1 : Err: Fila Vazia
+ * E1 : Err: Fila Vazia / Slot Invalido
  * E2 : Err: Fila Cheia
+ * E3 : Err: Erro Sintaxe
+ * E4 : Err: Preset Inv.
  * =================================================================================
  */
 
@@ -118,13 +134,31 @@ bool m2_comando_infinito = false;
 // ==========================================
 // VARIÁVEIS DA INTERFACE (UI)
 // ==========================================
+#define MAX_INPUT_LEN 64
+#define MSG_MAX_LEN 64
+#define SCROLL_INTERVAL_BASE 500
+#define MSG_TIMEOUT_MS 8000
+
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-String inputBuffer = "";
-String lastCommand = "";
-const int MAX_INPUT_LEN = 32;
-String currentMsg = "Sis Inicializado";
+
+struct {
+    uint8_t lcdNeedsUpdate : 1;
+    uint8_t isMessageLong : 1;
+    uint8_t isFastActMode : 1;
+    uint8_t msgIsStatus : 1;
+    uint8_t menuActive : 1;
+    uint8_t menuSelection : 1;
+} systemFlags;
+
+char inputBuffer[MAX_INPUT_LEN + 1];
+uint8_t inputLen = 0;
+char lastCommand[MAX_INPUT_LEN + 1];
+char currentMsg[MSG_MAX_LEN + 1];
+
 unsigned long lastScrollTime = 0;
-int scrollIndexBottom = 0;
+uint16_t scrollIndexBottom = 0;
+unsigned long lastMsgTime = 0;
+uint8_t saveComboState = 0;
 
 // Variáveis do Teclado (PCINT)
 volatile bool keyPressFlag = false;
@@ -138,8 +172,14 @@ char matrixKeys[4][4] = {
 // PROTÓTIPOS
 // ==========================================
 void updateLCD();
-void setUIMessage(String msg);
+void handleDisplayTasks();
+void setUIMessage(const char *msg);
+void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t idx);
 void interpretarComando(char *linha);
+void diagnosticoEEPROM();
+void processMenuKey(char key);
+void enterMenu();
+ComandoMotor parseLineToMotorCommand(char *linha);
 bool carregarProximoComando(uint8_t motor);
 void moverMotor1(uint32_t passos, uint32_t intervalo_us, uint8_t direcao);
 void moverMotor2(uint32_t passos, uint32_t intervalo_us, uint8_t direcao);
@@ -188,6 +228,19 @@ void setup()
     sei();
 
     inicializarPresetsEEPROM();
+
+    inputBuffer[0] = '\0';
+    lastCommand[0] = '\0';
+    strcpy_P(currentMsg, PSTR("Pronto."));
+
+    systemFlags.lcdNeedsUpdate = 1;
+    systemFlags.isMessageLong = 0;
+    systemFlags.isFastActMode = 0;
+    systemFlags.msgIsStatus = 0;
+    systemFlags.menuActive = 0;
+    systemFlags.menuSelection = 0;
+
+    diagnosticoEEPROM();
 
     setUIMessage("A0: Inicializado");
 }
@@ -364,7 +417,7 @@ void executarFastAction(uint8_t idx)
     if (m1_executando || m2_executando)
     {
         fila_iniciada = true;
-        setUIMessage("BB: FastAct " + String(idx));
+        char msg[20]; snprintf_P(msg, sizeof(msg), PSTR("BB: FastAct %d"), idx); setUIMessage(msg);
     }
 }
 
@@ -409,7 +462,7 @@ void executarFastActionRepeat(uint8_t idx, int32_t custom_repeat_signed)
     if (m1_executando || m2_executando)
     {
         fila_iniciada = true;
-        setUIMessage("BC: FastActRep " + String(idx));
+        char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("BC: FastActRep %d"), idx); setUIMessage(msg);
     }
 }
 
@@ -502,7 +555,7 @@ bool carregarProximoComando(uint8_t motor)
         m1_repeticoes_restantes = (cmd.repeat > 0) ? (cmd.repeat - 1) : 0;
 
         moverMotor1(cmd.step, cmd.vel, cmd.dir);
-        Serial.println("D0: M1 L" + String(m1_indice_atual));
+        Serial.print("D0: M1 L"); Serial.println(m1_indice_atual);
         return true;
     }
     else
@@ -519,7 +572,7 @@ bool carregarProximoComando(uint8_t motor)
         m2_repeticoes_restantes = (cmd.repeat > 0) ? (cmd.repeat - 1) : 0;
 
         moverMotor2(cmd.step, cmd.vel, cmd.dir);
-        Serial.println("D0: M2 L" + String(m2_indice_atual));
+        Serial.print("D0: M2 L"); Serial.println(m2_indice_atual);
         return true;
     }
 }
@@ -645,11 +698,15 @@ void manageSteppers()
 // ==========================================
 // TECLADO E INTERFACE (UI)
 // ==========================================
-void setUIMessage(String msg)
+void setUIMessage(const char *msg)
 {
-    currentMsg = msg;
+    strncpy(currentMsg, msg, MSG_MAX_LEN);
+    currentMsg[MSG_MAX_LEN] = '\0';
+    systemFlags.isMessageLong = (strlen(currentMsg) > 16) ? 1 : 0;
+    systemFlags.msgIsStatus = 1; // Temporária
     scrollIndexBottom = 0;
-    updateLCD();
+    lastMsgTime = millis();
+    systemFlags.lcdNeedsUpdate = 1;
     Serial.println(msg);
 }
 
@@ -668,7 +725,7 @@ char scanKeypadFast()
             {
                 if (!(cols & (1 << c)))
                 {
-                    key = matrixKeys[r][c];
+                    key = matrixKeys[3 - r][3 - c];
                     break;
                 }
             }
@@ -682,115 +739,384 @@ char scanKeypadFast()
     return key;
 }
 
-String getScrollText(String text, int index)
+void scrollTextToBuffer(char *out, const char *text, uint8_t textLen, uint16_t idx)
 {
-    if (text.length() <= 16)
+    const uint8_t GAP = 4;
+    uint8_t totalLen = textLen + GAP;
+    uint16_t start = idx % totalLen;
+
+    for (uint8_t i = 0; i < 16; i++)
     {
-        while (text.length() < 16)
-            text += " ";
-        return text;
+        uint16_t pos = (start + i) % totalLen;
+        out[i] = (pos < textLen) ? text[pos] : ' ';
     }
-    String padded = text + "    ";
-    int len = padded.length();
-    int idx = index % len;
-    String result = padded.substring(idx) + padded.substring(0, idx);
-    return result.substring(0, 16);
+    out[16] = '\0';
 }
 
 void updateLCD()
 {
-    String dispTop = "Cmd:";
-    if (inputBuffer.length() <= 12)
+    if (systemFlags.menuActive)
     {
-        dispTop += inputBuffer;
-        while (dispTop.length() < 16)
-            dispTop += " ";
+        char dispTop[17];
+        char dispBot[17];
+        if (systemFlags.menuSelection == 0)
+        {
+            snprintf_P(dispTop, 17, PSTR(">Executar Fila[%d]"), qtd_comandos_na_fila);
+            strcpy_P(dispBot, PSTR(" Limpar Fila    "));
+        }
+        else
+        {
+            snprintf_P(dispTop, 17, PSTR(" Executar Fila[%d]"), qtd_comandos_na_fila);
+            strcpy_P(dispBot, PSTR(">Limpar Fila    "));
+        }
+        lcd.setCursor(0, 0);
+        lcd.print(dispTop);
+        lcd.setCursor(0, 1);
+        lcd.print(dispBot);
+        return;
+    }
+
+    char dispTop[17];
+    char dispBot[17];
+
+    char prefix[11];
+    uint8_t prefixLen;
+
+    if (systemFlags.isFastActMode)
+    {
+        strcpy_P(prefix, PSTR("[F]Cmd:"));
+        prefixLen = 7;
+    }
+    else if (qtd_comandos_na_fila > 0)
+    {
+        snprintf_P(prefix, sizeof(prefix), PSTR("[%d]Cmd:"), qtd_comandos_na_fila);
+        prefixLen = strlen(prefix);
     }
     else
     {
-        dispTop += inputBuffer.substring(inputBuffer.length() - 12);
+        strcpy_P(prefix, PSTR("Cmd:"));
+        prefixLen = 4;
     }
-    String dispBot = getScrollText(currentMsg, scrollIndexBottom);
+
+    uint8_t maxInLen = 16 - prefixLen;
+    strncpy(dispTop, prefix, 16);
+    dispTop[prefixLen] = '\0';
+
+    if (inputLen <= maxInLen)
+    {
+        strncat(dispTop, inputBuffer, maxInLen);
+        uint8_t total = strlen(dispTop);
+        while (total < 16)
+            dispTop[total++] = ' ';
+        dispTop[16] = '\0';
+    }
+    else
+    {
+        strncat(dispTop, inputBuffer + (inputLen - maxInLen), maxInLen);
+        dispTop[16] = '\0';
+    }
+
+    uint8_t msgLen = strlen(currentMsg);
+    if (msgLen <= 16)
+    {
+        strncpy(dispBot, currentMsg, 16);
+        uint8_t total = msgLen;
+        while (total < 16)
+            dispBot[total++] = ' ';
+        dispBot[16] = '\0';
+    }
+    else
+    {
+        scrollTextToBuffer(dispBot, currentMsg, msgLen, scrollIndexBottom);
+    }
+
     lcd.setCursor(0, 0);
     lcd.print(dispTop);
     lcd.setCursor(0, 1);
     lcd.print(dispBot);
 }
 
-void handleScroll()
+void handleDisplayTasks()
 {
-    if (millis() - lastScrollTime >= 400)
+    unsigned long now = millis();
+
+    if (systemFlags.msgIsStatus && (now - lastMsgTime >= MSG_TIMEOUT_MS))
     {
-        lastScrollTime = millis();
-        if (currentMsg.length() > 16)
+        if (systemFlags.isFastActMode)
+            strcpy_P(currentMsg, PSTR("[FAST ACT]"));
+        else
+            strcpy_P(currentMsg, PSTR("Pronto."));
+            
+        systemFlags.isMessageLong = 0;
+        systemFlags.msgIsStatus = 0;
+        scrollIndexBottom = 0;
+        systemFlags.lcdNeedsUpdate = 1;
+    }
+
+    if (systemFlags.isMessageLong)
+    {
+        uint8_t msgLen = strlen(currentMsg);
+        uint16_t interval = (uint16_t)max(200, SCROLL_INTERVAL_BASE - (int)(msgLen * 10));
+        if (now - lastScrollTime >= interval)
         {
+            lastScrollTime = now;
             scrollIndexBottom++;
-            updateLCD();
+            systemFlags.lcdNeedsUpdate = 1;
         }
     }
+
+    if (systemFlags.lcdNeedsUpdate)
+    {
+        updateLCD();
+        systemFlags.lcdNeedsUpdate = 0;
+    }
+}
+
+void enterMenu()
+{
+    systemFlags.menuActive = 1;
+    systemFlags.menuSelection = 0;
+    systemFlags.lcdNeedsUpdate = 1;
+}
+
+void processMenuKey(char key)
+{
+    if (key == 'A' || key == 'B')
+    {
+        systemFlags.menuSelection = !systemFlags.menuSelection;
+    }
+    else if (key == '#')
+    {
+        systemFlags.menuActive = 0;
+        if (systemFlags.menuSelection == 0)
+        {
+            char cmdBuf[10];
+            strcpy(cmdBuf, "01");
+            interpretarComando(cmdBuf);
+        }
+        else
+        {
+            qtd_comandos_na_fila = 0;
+            setUIMessage("SRAM Limpa!");
+        }
+    }
+    else if (key == '*')
+    {
+        systemFlags.menuActive = 0;
+        setUIMessage("Menu Fechado");
+    }
+    systemFlags.lcdNeedsUpdate = 1;
+}
+
+ComandoMotor parseLineToMotorCommand(char *linha)
+{
+    // Parsea uma linha no formato H8P e retorna o struct correspondente.
+    char temp[MAX_INPUT_LEN + 1];
+    strncpy(temp, linha, MAX_INPUT_LEN);
+    temp[MAX_INPUT_LEN] = '\0';
+
+    char *d = temp;
+    do { while (*d == ' ') d++; } while ((*linha++ = *d++));
+    linha = linha - (d - linha); // reset pointer, wait actually temp was modified? No, wait, temp is modified.
+    
+    // Safer parse:
+    strncpy(temp, linha, MAX_INPUT_LEN);
+    temp[MAX_INPUT_LEN] = '\0';
+    
+    ComandoMotor cmd = {0, 0, 0, 1, 0, 1};
+    char *ponteiro_virgula;
+    char *par = strtok_r(temp, ",", &ponteiro_virgula);
+
+    while (par != NULL)
+    {
+        char *ponteiro_dois_pontos;
+        char *chave_str = strtok_r(par, ":", &ponteiro_dois_pontos);
+        char *valor_str = strtok_r(NULL, ":", &ponteiro_dois_pontos);
+
+        if (chave_str != NULL && valor_str != NULL)
+        {
+            uint8_t chave = (uint8_t)strtol(chave_str, NULL, 16);
+            int32_t valor = atol(valor_str);
+
+            switch (chave)
+            {
+            case 0x10: cmd.step = (uint32_t)valor; break;
+            case 0x11: cmd.vel = (uint32_t)valor; break;
+            case 0x12: cmd.dir = (uint8_t)valor; break;
+            case 0x13: cmd.repeat = (uint16_t)valor; break;
+            case 0x14: cmd.pause_ms = (uint32_t)valor; break;
+            case 0x15: cmd.motor_id = (uint8_t)valor; break;
+            }
+        }
+        par = strtok_r(NULL, ",", &ponteiro_virgula);
+    }
+    return cmd;
 }
 
 void processKeyInput(char key)
 {
-    if (inputBuffer.endsWith(":"))
+    if (systemFlags.menuActive)
     {
-        if (key == '#')
-        {
-            inputBuffer.remove(inputBuffer.length() - 1);
-            if (inputBuffer.length() == 0 && lastCommand.length() > 0)
-                inputBuffer = lastCommand;
-            else if (inputBuffer.length() > 0)
-                lastCommand = inputBuffer;
+        processMenuKey(key);
+        return;
+    }
 
-            if (inputBuffer.length() > 0)
-            {
-                char cmdBuf[MAX_INPUT_LEN];
-                inputBuffer.toCharArray(cmdBuf, MAX_INPUT_LEN);
-                interpretarComando(cmdBuf);
-            }
-            inputBuffer = "";
-        }
-        else if (key == 'C')
-            inputBuffer = "";
-        else if (key == 'D')
+    if (systemFlags.isFastActMode && isDigit(key))
+    {
+        executarFastAction(key - '0');
+        return;
+    }
+
+    if (saveComboState == 1)
+    {
+        if (key == 'C')
         {
-            if (inputBuffer.length() >= 2)
-                inputBuffer.remove(inputBuffer.length() - 2);
-            else
-                inputBuffer = "";
-        }
-        else if (key == 'A')
-            inputBuffer.setCharAt(inputBuffer.length() - 1, '-');
-        else if (key == '*')
-        {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += ":";
+            saveComboState = 2;
+            systemFlags.lcdNeedsUpdate = 1;
+            return;
         }
         else
         {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += key;
+            saveComboState = 0;
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = '-';
+                inputBuffer[inputLen] = '\0';
+            }
+            else setUIMessage("LIMITE!");
+        }
+    }
+    else if (saveComboState == 2)
+    {
+        if (isDigit(key))
+        {
+            saveComboState = 0;
+            if (inputLen > 0)
+            {
+                ComandoMotor cmdToSave = parseLineToMotorCommand(inputBuffer);
+                gravarPresetEEPROM(key - '0', cmdToSave);
+                char msg[20];
+                snprintf_P(msg, sizeof(msg), PSTR("Slot %d Salvo!"), key - '0');
+                setUIMessage(msg);
+                inputLen = 0;
+                inputBuffer[0] = '\0';
+            }
+            else setUIMessage("Buffer Vazio!");
+            systemFlags.lcdNeedsUpdate = 1;
+            return;
+        }
+        else saveComboState = 0;
+    }
+
+    bool hasStar = (inputLen > 0 && inputBuffer[inputLen - 1] == ':');
+
+    if (hasStar)
+    {
+        if (key == '#')
+        {
+            inputBuffer[--inputLen] = '\0';
+            if (inputLen == 0 && lastCommand[0] != '\0')
+            {
+                strncpy(inputBuffer, lastCommand, MAX_INPUT_LEN);
+                inputLen = strlen(inputBuffer);
+            }
+            else if (inputLen > 0)
+            {
+                strncpy(lastCommand, inputBuffer, MAX_INPUT_LEN);
+                lastCommand[MAX_INPUT_LEN] = '\0';
+            }
+
+            if (inputLen > 0)
+            {
+                char cmdBuf[MAX_INPUT_LEN + 1];
+                strncpy(cmdBuf, inputBuffer, MAX_INPUT_LEN);
+                cmdBuf[MAX_INPUT_LEN] = '\0';
+                interpretarComando(cmdBuf);
+            }
+            inputLen = 0;
+            inputBuffer[0] = '\0';
+        }
+        else if (key == 'B')
+        {
+            inputBuffer[--inputLen] = '\0';
+            systemFlags.isFastActMode = !systemFlags.isFastActMode;
+            setUIMessage(systemFlags.isFastActMode ? "FAST ACT ON" : "FAST ACT OFF");
+        }
+        else if (key == 'C')
+        {
+            inputLen = 0;
+            inputBuffer[0] = '\0';
+        }
+        else if (key == 'D')
+        {
+            if (inputLen >= 2)
+                inputBuffer[inputLen -= 2] = '\0';
+            else
+            {
+                inputLen = 0;
+                inputBuffer[0] = '\0';
+            }
+        }
+        else if (key == 'A')
+        {
+            inputBuffer[--inputLen] = '\0';
+            saveComboState = 1;
+        }
+        else if (key == '*')
+        {
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = ':';
+                inputBuffer[inputLen] = '\0';
+            }
+            else setUIMessage("LIMITE!");
+        }
+        else if (isDigit(key))
+        {
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = key;
+                inputBuffer[inputLen] = '\0';
+            }
+            else setUIMessage("LIMITE!");
+        }
+        else
+        {
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = key;
+                inputBuffer[inputLen] = '\0';
+            }
+            else setUIMessage("LIMITE!");
         }
     }
     else
     {
-        if (key == '#')
+        char toAppend = 0;
+        if (key == '#') toAppend = ',';
+        else if (key == '*') toAppend = ':';
+        else toAppend = key;
+
+        if (toAppend)
         {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += ",";
-        }
-        else if (key == '*')
-        {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += ":";
-        }
-        else
-        {
-            if (inputBuffer.length() < MAX_INPUT_LEN)
-                inputBuffer += key;
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = toAppend;
+                inputBuffer[inputLen] = '\0';
+            }
+            else setUIMessage("LIMITE!");
         }
     }
-    updateLCD();
+
+    if (inputLen == 4 && inputBuffer[0] == ':' && inputBuffer[1] == '0' &&
+        inputBuffer[2] == '0' && inputBuffer[3] == '0')
+    {
+        inputLen = 0;
+        inputBuffer[0] = '\0';
+        enterMenu();
+    }
+
+    systemFlags.lcdNeedsUpdate = 1;
 }
 
 // ==========================================
@@ -892,7 +1218,7 @@ void interpretarComando(char *linha)
                 else if (chave == 0x04)
                 {
                     global_pause_ms = valor;
-                    setUIMessage("B2: Pausa " + String(valor) + "ms");
+                    char msg[20]; snprintf_P(msg, sizeof(msg), PSTR("B2: Pausa %ldms"), valor); setUIMessage(msg);
                     return;
                 }
                 else if (chave == 0x16)
@@ -901,7 +1227,7 @@ void interpretarComando(char *linha)
                         PORTA &= ~(1 << M1_EN_PIN);
                     else if (valor == 2)
                         PORTA &= ~(1 << M2_EN_PIN);
-                    setUIMessage("B7: M" + String(valor) + " Habilitado");
+                    char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("B7: M%ld Habilitado"), valor); setUIMessage(msg);
                     return;
                 }
                 else if (chave == 0x17)
@@ -910,7 +1236,7 @@ void interpretarComando(char *linha)
                         PORTA |= (1 << M1_EN_PIN);
                     else if (valor == 2)
                         PORTA |= (1 << M2_EN_PIN);
-                    setUIMessage("B8: M" + String(valor) + " Desabilt.");
+                    char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("B8: M%ld Desabilt."), valor); setUIMessage(msg);
                     return;
                 }
                 else if (chave == 0x18)
@@ -921,7 +1247,7 @@ void interpretarComando(char *linha)
                 else if (chave == 0x1A)
                 { // readPreset
                     ComandoMotor p = lerPresetEEPROM(valor);
-                    setUIMessage("BA: L" + String(valor) + " S:" + String(p.step) + " V:" + String(p.vel));
+                    char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("BA: L%ld S:%lu V:%lu"), valor, p.step, p.vel); setUIMessage(msg);
                     return;
                 }
                 else if (chave == 0x1B)
@@ -939,7 +1265,7 @@ void interpretarComando(char *linha)
                         if (idx_sram < qtd_comandos_na_fila && idx_eeprom < MAX_PRESETS)
                         {
                             gravarPresetEEPROM(idx_eeprom, fila_comandos[idx_sram]);
-                            setUIMessage("C0: Slot " + String(idx_eeprom) + " Salvo");
+                            char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("C0: Slot %d Salvo"), idx_eeprom); setUIMessage(msg);
                         }
                         else
                         {
@@ -980,7 +1306,7 @@ void interpretarComando(char *linha)
                     if (cmd.step > 0 && valor < MAX_PRESETS)
                     {
                         gravarPresetEEPROM(valor, cmd);
-                        setUIMessage("B9: Preset " + String(valor) + " Gravado");
+                        char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("B9: Preset %ld Gravado"), valor); setUIMessage(msg);
                     }
                     else
                     {
@@ -999,7 +1325,7 @@ void interpretarComando(char *linha)
         {
             fila_comandos[qtd_comandos_na_fila] = cmd;
             qtd_comandos_na_fila++;
-            setUIMessage("C1: Slot " + String(qtd_comandos_na_fila));
+            char msg[20]; snprintf_P(msg, sizeof(msg), PSTR("C1: Slot %d"), qtd_comandos_na_fila); setUIMessage(msg);
         }
         else
         {
@@ -1011,6 +1337,36 @@ void interpretarComando(char *linha)
 // ==========================================
 // LOOP PRINCIPAL
 // ==========================================
+void diagnosticoEEPROM()
+{
+    Serial.println(F("--- EEPROM Slots ---"));
+    for (uint8_t s = 0; s < MAX_PRESETS; s++)
+    {
+        ComandoMotor cmd = lerPresetEEPROM(s);
+        Serial.print(F("Slot "));
+        Serial.print(s);
+        Serial.print(F(": "));
+        if (cmd.step == 0 && cmd.vel == 0)
+            Serial.println(F("[Vazio]"));
+        else
+        {
+            Serial.print(F("S:"));
+            Serial.print(cmd.step);
+            Serial.print(F(" V:"));
+            Serial.print(cmd.vel);
+            Serial.print(F(" D:"));
+            Serial.print(cmd.dir);
+            Serial.print(F(" R:"));
+            Serial.print(cmd.repeat);
+            Serial.print(F(" P:"));
+            Serial.print(cmd.pause_ms);
+            Serial.print(F(" M:"));
+            Serial.println(cmd.motor_id);
+        }
+    }
+    Serial.println(F("--------------------"));
+}
+
 void loop()
 {
     if (keyPressFlag)
@@ -1027,6 +1383,6 @@ void loop()
         keyPressFlag = false;
     }
 
-    handleScroll();
+    handleDisplayTasks();
     manageSteppers();
 }
