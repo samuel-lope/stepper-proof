@@ -55,6 +55,19 @@
  * E3 : Err: Erro Sintaxe
  * E4 : Err: Preset Inv.
  * =================================================================================
+ * MAPEAMENTO DE FUNÇÕES DO COMMANDER (TECLADO / UI)
+ * =================================================================================
+ * [IMPLEMENTADO] * + #          -> Enter (Enviar Comando da Linha)
+ * [IMPLEMENTADO] * + C          -> Apagar Tudo (Clear Buffer)
+ * [IMPLEMENTADO] * + D          -> Apagar Último (Backspace)
+ * [IMPLEMENTADO] * + A          -> Inserir Sinal de Menos (-)
+ * [IMPLEMENTADO] * + B          -> Alternar Modo Fast Act (Execução Direta de Macros)
+ * [IMPLEMENTADO] A + N          -> Gravar Comando Atual na EEPROM (Slot N)
+ * [IMPLEMENTADO] * + 000        -> Abrir Menu Interativo (SRAM Queue)
+ * [IMPLEMENTADO] Teclas no Menu -> A/B (Navegar), # (Confirmar), * (Cancelar)
+ * [IMPLEMENTADO] Num Fast Act   -> Teclas 0-9 executam slots EEPROM imediatamente
+ * [IMPLEMENTADO] UI Multitarefa -> Scroll Adaptativo de textos e Timeout de 8s para Alertas
+ * =================================================================================
  */
 
 #include <Arduino.h>
@@ -967,26 +980,7 @@ void processKeyInput(char key)
         return;
     }
 
-    if (saveComboState == 1)
-    {
-        if (key == 'C')
-        {
-            saveComboState = 2;
-            systemFlags.lcdNeedsUpdate = 1;
-            return;
-        }
-        else
-        {
-            saveComboState = 0;
-            if (inputLen < MAX_INPUT_LEN)
-            {
-                inputBuffer[inputLen++] = '-';
-                inputBuffer[inputLen] = '\0';
-            }
-            else setUIMessage("LIMITE!");
-        }
-    }
-    else if (saveComboState == 2)
+    if (saveComboState == 2)
     {
         if (isDigit(key))
         {
@@ -1060,7 +1054,12 @@ void processKeyInput(char key)
         else if (key == 'A')
         {
             inputBuffer[--inputLen] = '\0';
-            saveComboState = 1;
+            if (inputLen < MAX_INPUT_LEN)
+            {
+                inputBuffer[inputLen++] = '-';
+                inputBuffer[inputLen] = '\0';
+            }
+            else setUIMessage("LIMITE!");
         }
         else if (key == '*')
         {
@@ -1095,6 +1094,12 @@ void processKeyInput(char key)
         char toAppend = 0;
         if (key == '#') toAppend = ',';
         else if (key == '*') toAppend = ':';
+        else if (key == 'A')
+        {
+            saveComboState = 2;
+            systemFlags.lcdNeedsUpdate = 1;
+            return;
+        }
         else toAppend = key;
 
         if (toAppend)
