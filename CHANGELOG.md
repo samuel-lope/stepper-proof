@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-04-30
+### Added
+- **Arquitetura Monolítica (ATmega2560)**: Integração total dos módulos Stepper Control e StepCommander em um único MCU (Arduino Mega).
+- **Desacoplamento Lógico (Virtual Serial)**: Implementação de ponte interna via `interpretarComando(char*)`, mantendo a separação estrita entre UI (teclado/LCD) e Core (Motores/Timers).
+- **Atalhos de Teclado Simplificados**:
+  - `# + A + N`: Novo atalho para gravação direta do buffer na EEPROM (resolvendo conflitos com comandos hex).
+  - `* + A`: Agora insere o sinal de menos (`-`) para inserção manual de valores negativos.
+  - `* + B`: Alternância rápida do modo Fast Act (Execução de macros).
+- **Melhorias no Protocolo H8P**:
+  - **Comando 19 (Deferred Parsing)**: O comando de gravação em EEPROM agora pode ser enviado no início da linha, com validação deferida para o fim do processamento do buffer.
+  - **Telemetria Otimizada**: Separação clara entre mensagens de UI (LCD) e telemetria bruta (Serial), garantindo que dados de alta frequência (D0, C1) não bloqueiem o barramento I2C.
+- **SRAM Expandida**: Aproveitamento da memória superior do ATmega2560 para estabilidade do buffer de 64 caracteres.
+
+### Changed
+- **Hardware Principal**: Migração oficial para ATmega2560 (Arduino Mega).
+- **Documentação**: Atualização completa de README, INTEGRATION.md e STEPCOMMANDER.md para refletir a nova topologia de hardware único.
+
+### Removed
+- **SoftwareSerial**: Removida a dependência de comunicação serial física entre placas; substituída por chamadas de função internas.
+- **Atalho `*+A+C+N`**: Removido em favor do novo padrão `#+A+N`.
+
 ## [2.2.0] - 2026-04-26
 ### Added
 - **Fila de Comandos SRAM (Commander V2.2)**: Comandos de motor (`10:`, `11:`) são enfileirados localmente na SRAM do Commander (5 slots × 64 chars). Ao enviar `01`, toda a fila é re-transmitida para a placa principal automaticamente.

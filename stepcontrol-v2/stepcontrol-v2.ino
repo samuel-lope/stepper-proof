@@ -62,7 +62,7 @@
  * [IMPLEMENTADO] * + D          -> Apagar Último (Backspace)
  * [IMPLEMENTADO] * + A          -> Inserir Sinal de Menos (-)
  * [IMPLEMENTADO] * + B          -> Alternar Modo Fast Act (Execução Direta de Macros)
- * [IMPLEMENTADO] A + N          -> Gravar Comando Atual na EEPROM (Slot N)
+ * [IMPLEMENTADO] # + A + N      -> Gravar Comando Atual na EEPROM (Slot N)
  * [IMPLEMENTADO] * + 000        -> Abrir Menu Interativo (SRAM Queue)
  * [IMPLEMENTADO] Teclas no Menu -> A/B (Navegar), # (Confirmar), * (Cancelar)
  * [IMPLEMENTADO] Num Fast Act   -> Teclas 0-9 executam slots EEPROM imediatamente
@@ -911,6 +911,7 @@ void processMenuKey(char key)
         {
             qtd_comandos_na_fila = 0;
             setUIMessage("SRAM Limpa!");
+            Serial.println(F("C1:0"));
         }
     }
     else if (key == '*')
@@ -925,16 +926,21 @@ ComandoMotor parseLineToMotorCommand(char *linha)
 {
     // Parsea uma linha no formato H8P e retorna o struct correspondente.
     char temp[MAX_INPUT_LEN + 1];
-    strncpy(temp, linha, MAX_INPUT_LEN);
-    temp[MAX_INPUT_LEN] = '\0';
-
-    char *d = temp;
-    do { while (*d == ' ') d++; } while ((*linha++ = *d++));
-    linha = linha - (d - linha); // reset pointer, wait actually temp was modified? No, wait, temp is modified.
     
-    // Safer parse:
-    strncpy(temp, linha, MAX_INPUT_LEN);
-    temp[MAX_INPUT_LEN] = '\0';
+    // Remove espaços enquanto copia para temp
+    char *src = linha;
+    char *dst = temp;
+    int len = 0;
+    while (*src && len < MAX_INPUT_LEN)
+    {
+        if (*src != ' ')
+        {
+            *dst++ = *src;
+            len++;
+        }
+        src++;
+    }
+    *dst = '\0';
     
     ComandoMotor cmd = {0, 0, 0, 1, 0, 1};
     char *ponteiro_virgula;
@@ -1003,6 +1009,7 @@ void processKeyInput(char key)
     }
 
     bool hasStar = (inputLen > 0 && inputBuffer[inputLen - 1] == ':');
+    bool hasComma = (inputLen > 0 && inputBuffer[inputLen - 1] == ',');
 
     if (hasStar)
     {
@@ -1089,17 +1096,18 @@ void processKeyInput(char key)
             else setUIMessage("LIMITE!");
         }
     }
+    else if (hasComma && key == 'A')
+    {
+        inputBuffer[--inputLen] = '\0';
+        saveComboState = 2;
+        systemFlags.lcdNeedsUpdate = 1;
+        return;
+    }
     else
     {
         char toAppend = 0;
         if (key == '#') toAppend = ',';
         else if (key == '*') toAppend = ':';
-        else if (key == 'A')
-        {
-            saveComboState = 2;
-            systemFlags.lcdNeedsUpdate = 1;
-            return;
-        }
         else toAppend = key;
 
         if (toAppend)
@@ -1129,16 +1137,23 @@ void processKeyInput(char key)
 // ==========================================
 void interpretarComando(char *linha)
 {
-    char *d = linha;
-    do
+    // Remove espaços em branco in-place
+    char *src = linha;
+    char *dst = linha;
+    while (*src)
     {
-        while (*d == ' ')
-            d++;
-    } while ((*linha++ = *d++));
-    linha = linha - (d - linha);
+        if (*src != ' ')
+        {
+            *dst++ = *src;
+        }
+        src++;
+    }
+    *dst = '\0';
 
     ComandoMotor cmd = {0, 0, 0, 1, 0, 1};
     bool cmd_valido = false;
+    bool save_to_eeprom = false;
+    uint8_t eeprom_slot = 0;
 
     char *ponteiro_virgula;
     char *par = strtok_r(linha, ",", &ponteiro_virgula);
@@ -1206,6 +1221,7 @@ void interpretarComando(char *linha)
                     fila_iniciada = false;
                     sei();
                     setUIMessage("B1: Motor Parado");
+                    Serial.println(F("C1:0"));
                     return;
                 }
             }
@@ -1307,21 +1323,36 @@ void interpretarComando(char *linha)
                     cmd.motor_id = valor;
                 }
                 else if (chave == 0x19)
-                { // writePreset (Vem atrelado a parâmetros de linha)
-                    if (cmd.step > 0 && valor < MAX_PRESETS)
-                    {
-                        gravarPresetEEPROM(valor, cmd);
-                        char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("B9: Preset %ld Gravado"), valor); setUIMessage(msg);
-                    }
-                    else
-                    {
-                        setUIMessage("E3: Erro Sintaxe");
-                    }
-                    return;
+                { // writePreset deferido para o final do parser
+                    save_to_eeprom = true;
+                    eeprom_slot = valor;
                 }
             }
         }
         par = strtok_r(NULL, ",", &ponteiro_virgula);
+    }
+
+    if (save_to_eeprom)
+    {
+        if (cmd_valido && eeprom_slot < MAX_PRESETS)
+        {
+            gravarPresetEEPROM(eeprom_slot, cmd);
+            char msg[25]; snprintf_P(msg, sizeof(msg), PSTR("Preset %d Salvo"), eeprom_slot);
+            setUIMessage(msg);
+            
+            Serial.print(F("B9:")); Serial.print(eeprom_slot);
+            Serial.print(F(",10:")); Serial.print(cmd.step);
+            Serial.print(F(",11:")); Serial.print(cmd.vel);
+            Serial.print(F(",12:")); Serial.print(cmd.dir);
+            Serial.print(F(",13:")); Serial.print(cmd.repeat);
+            Serial.print(F(",14:")); Serial.print(cmd.pause_ms);
+            Serial.print(F(",15:")); Serial.println(cmd.motor_id);
+        }
+        else
+        {
+            setUIMessage("E3: Erro Sintaxe");
+        }
+        return; // Não adiciona à fila SRAM
     }
 
     if (cmd_valido)
@@ -1329,8 +1360,10 @@ void interpretarComando(char *linha)
         if (qtd_comandos_na_fila < MAX_FILA)
         {
             fila_comandos[qtd_comandos_na_fila] = cmd;
+            Serial.print(F("C0:")); Serial.println(qtd_comandos_na_fila);
             qtd_comandos_na_fila++;
-            char msg[20]; snprintf_P(msg, sizeof(msg), PSTR("C1: Slot %d"), qtd_comandos_na_fila); setUIMessage(msg);
+            Serial.print(F("C1:")); Serial.println(qtd_comandos_na_fila);
+            char msg[20]; snprintf_P(msg, sizeof(msg), PSTR("Slot %d (Fila)"), qtd_comandos_na_fila); setUIMessage(msg);
         }
         else
         {

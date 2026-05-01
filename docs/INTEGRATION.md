@@ -4,28 +4,28 @@ Este documento detalha o protocolo de comunicação e a arquitetura de integraç
 
 ---
 
-## 🏗️ Arquitetura de Comunicação
+## 🏗️ Arquitetura Monolítica (Integração)
 
-O projeto possui **duas interfaces de entrada simultâneas** para o firmware principal:
+O projeto evoluiu para uma **arquitetura monolítica** rodando centralizada em um **Arduino Mega 2560**. O firmware unifica o controle lógico (StepCommander) e o controle de potência (StepControl) em um único chip, eliminando a latência e a complexidade de comunicação entre duas placas físicas.
 
-| Canal | Meio Físico | Pinos | Uso |
+Existem duas formas principais de interagir com o "Core" do controlador (Módulo de Execução):
+
+| Canal | Meio | Integração | Uso |
 |:---|:---|:---|:---|
-| **USB Serial** | Hardware Serial (UART) | RX0/TX1 | Interface Web (Chrome/Edge via Web Serial API) |
-| **SoftwareSerial** | Bit-banging via biblioteca | A0 (RX) / A1 (TX) | StepCommander V2 (Teclado + LCD) |
+| **USB Serial** | Hardware Serial (UART) | Externa (Porta RX0/TX1) | Interface Web (Chrome/Edge via Web Serial API) |
+| **Interface Local**| Teclado 4x4 / LCD I2C | Interna (Chamadas de API) | Painel físico operado pelo usuário (Ex-StepCommander) |
 
-- **Configuração**: **9600 bps**, 8-N-1 (ambas as portas).
-- **Protocolo**: Texto em pares `Chave:Valor` hexadecimais, separados por vírgula, terminados por `\n`.
+- **Protocolo Base**: Texto em pares `Chave:Valor` hexadecimais, separados por vírgula.
 
-### Detecção de Origem e Roteamento
+### Desacoplamento Lógico (Virtual Serial)
 
-O firmware identifica automaticamente qual porta serial originou cada comando (`SRC_USB` ou `SRC_COMMANDER`) e roteia as respostas de acordo:
+Mesmo rodando no mesmo chip, o código mantém um **desacoplamento estrito** entre o Módulo de Interface Local (Commander) e o Módulo de Execução (Motores):
 
-- **Respostas diretas** (confirmações de ação): Enviadas somente para quem enviou o comando.
-- **Eventos globais** (mudanças de estado): Broadcast para ambas as interfaces.
-- **Telemetria de alta frequência** (`D0`, `C1`): Somente USB Serial.
+1. **Módulo Commander (UI & Atalhos)**: Captura as teclas (`PCINT2`), gerencia o display I2C e resolve atalhos.
+2. **Módulo StepControl (Execução)**: Gerencia os motores, a Fila (SRAM), os Timers e a EEPROM. 
+3. **A Ponte (`interpretarComando`)**: Quando o Commander compila uma linha de comando, ele a repassa para a função `interpretarComando(char*)`, atuando como se fosse um cliente serial enviando texto pela porta. O fluxo de execução e validação é idêntico ao da USB Serial.
 
-> [!WARNING]
-> **SoftwareSerial e Interrupts**: A biblioteca `SoftwareSerial` desabilita interrupts globais durante a transmissão de cada byte (~1ms a 9600 baud). Enviar dados de alta frequência (como `D0`, que dispara a cada ciclo de passos) via SoftwareSerial causa stuttering nos pulsos do Timer1. Por isso, `D0` e `C1` são exclusivos da USB Serial.
+As respostas do núcleo são despachadas via função `setUIMessage()` (que atualiza o LCD localmente) e impressas na Serial (para a Interface Web). Telemetrias de alta frequência (`D0`, `C1`) são exclusivas da USB Serial para não travar o loop de interrupções atualizando o lento barramento I2C do LCD.
 
 ---
 
@@ -332,22 +332,22 @@ sequenceDiagram
     HW-->>UI: "B5" (Ambos concluídos)
 ```
 
-### Via StepCommander (SoftwareSerial)
+### Via Interface Local (Painel Embutido)
 
 ```mermaid
 sequenceDiagram
-    participant CMD as Commander (LCD)
-    participant HW as Arduino (AVR)
+    participant CMD as Módulo UI (Teclado/LCD)
+    participant HW as Módulo Core (Parser/Timers)
 
     Note over CMD,HW: 1. Envio de Comando
-    CMD->>HW: "10:1600,11:250,15:1\n"
-    HW-->>CMD: "C0:0" (Otimizado — LCD exibe "Fila: Linha 0")
+    CMD->>HW: interpretarComando("10:1600,11:250,15:1")
+    HW-->>CMD: setUIMessage("C1: Slot 1") (LCD atualizado)
 
     Note over CMD,HW: 2. Execução
-    CMD->>HW: "01\n"
-    HW-->>CMD: "B0" (LCD exibe "Iniciando Fila")
-    Note right of HW: D0/C1 NÃO são enviados ao Commander
-    HW-->>CMD: "B5" (LCD exibe "Fila Executada")
+    CMD->>HW: interpretarComando("01")
+    HW-->>CMD: setUIMessage("B0: Executando...")
+    Note right of HW: D0/C1 só vão para USB Serial, poupando SRAM e ciclos I2C
+    HW-->>CMD: setUIMessage("B5: Fila Executada")
 ```
 
 ---

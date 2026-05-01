@@ -1,21 +1,20 @@
-# ⚙️ Stepper Proof
+# ⚙️ Stepper Proof v3.0
 
-Controle simultâneo e independente de alta precisão para dois motores de passo TB6600 via Web Serial API e interface física dedicada.
+Controle simultâneo e independente de alta precisão para dois motores de passo TB6600 via Web Serial API e interface física integrada (Monolítica).
 
 ## Quick Start
 
 ### 1. Hardware Setup
-Conecte os motores ao MCU (Arduino Uno/Nano):
+Conecte os motores e periféricos ao MCU (**Arduino Mega 2560**):
 - **Motor 1:** DIR(D2), PUL(D3), ENA(D6)
 - **Motor 2:** DIR(D4), PUL(D5), ENA(D7)
-- **SoftwareSerial (Commander):** RX(A0), TX(A1)
+- **Teclado 4x4:** Linhas(A8-A11), Colunas(A12-A15) — [PORTK]
+- **LCD 16x2 I2C:** SDA(D20), SCL(D21) — [Endereço 0x27]
 
 *(Nota: Os drivers usam lógica de Enable invertida, LOW para ativar).*
 
 ### 2. Firmware (AVR)
-Abra `stepcontrol/stepcontrol.ino`, compile e faça o upload. A porta serial operará a **9600 bps**.
-
-Para controle físico opcional, carregue o firmware do StepCommander V2 em `stepcommander-v2/` em um segundo Arduino.
+Abra `stepcontrol-v2/stepcontrol-v2.ino`, compile e faça o upload para sua placa Mega 2560. A porta serial opera a **9600 bps**.
 
 ### 3. Interface Web
 Execute o servidor local apontando para a pasta `public/`. Acesse `http://localhost:5500` no Google Chrome ou Edge (necessário suporte nativo a Web Serial API).
@@ -24,47 +23,47 @@ Execute o servidor local apontando para a pasta `public/`. Acesse `http://localh
 
 | Diretório | Descrição |
 |:---|:---|
-| `stepcontrol/` | Firmware da Placa Principal (Dual Motor Engine) |
-| `stepcommander/` | Firmware V1 do Interface de Teclado (Simples/Legacy) |
-| `stepcommander-v2/` | Firmware V2 do Interface de Teclado (Não-bloqueante/Otimizado) |
-| `public/` | Dashboard Web (React/Tailwind) |
+| `stepcontrol-v2/` | Firmware Monolítico Principal (Motor Core + UI Commander) |
 | `docs/` | Documentação Técnica e Guias de Integração |
+| `public/` | Dashboard Web (React/Tailwind) |
+| `stepcommander/` | [Legacy] Firmware V1 para interface externa |
 
-## Arquitetura de Comunicação
+## Arquitetura Monolítica
 
-O firmware principal (`stepcontrol.ino`) opera com **duas interfaces de entrada simultâneas**:
+A versão 3.0 consolida o controle de motores e a interface física em um único ATmega2560, eliminando latências de comunicação serial física e liberando pinos de I/O.
 
 ```
-┌──────────────┐  USB Serial    ┌─────────────────────┐  SoftwareSerial  ┌──────────────────┐
-│  Web Browser  │ ──────────── │   stepcontrol.ino    │ ──────────────── │ stepcommander-v2 │
-│  (Chrome/Edge)│  (RX0/TX1)   │ (Placa Principal)    │   (A0/A1)        │ (Teclado + LCD)  │
-└──────────────┘               └─────────────────────┘                   └──────────────────┘
+┌──────────────┐  USB Serial    ┌─────────────────────────────────────────┐
+│  Web Browser  │ ──────────── │           ATmega2560 (Monolítico)       │
+│  (Chrome/Edge)│  (RX0/TX1)   │ ┌──────────────┐      ┌────────────────┐ │
+└──────────────┘               │ │ Módulo Core  │ <──> │ Módulo UI (LCD)│ │
+                               │ └──────────────┘      └────────────────┘ │
+                               └──────────────────────────────────────────┘
 ```
 
-### Roteamento Inteligente de Respostas
+### Desacoplamento Lógico (Virtual Serial)
 
-O firmware identifica automaticamente a **origem de cada comando** e roteia as respostas:
+O sistema mantém um **desacoplamento estrito** entre a Interface Local e o Núcleo de Execução:
+- **Ponte de Comando**: O teclado envia comandos para a função `interpretarComando(char*)`, simulando um cliente serial interno.
+- **Roteamento de Respostas**: O firmware identifica se o comando veio da USB ou da Interface Local para formatar a resposta ideal (Hex bruta vs. Texto amigável).
 
-| Tipo de Resposta | USB Serial (Web) | SoftwareSerial (Commander) |
+| Tipo de Resposta | USB Serial (Web) | Interface Local (LCD) |
 |:---|:---:|:---:|
-| **Respostas diretas** (C0, B9, BA, BB, BC) | Dados completos (`C0:0,10:1600,11:250,...`) | Formato otimizado (`C0:0`) |
-| **Eventos globais** (B0, B1, B4, B5, B6, B7, B8) | ✅ Broadcast | ✅ Broadcast |
-| **Telemetria de alta frequência** (D0, C1) | ✅ Somente USB | ❌ Bloqueado |
-| **Erros** (E0–E4) | ✅ Somente quem enviou | ✅ Somente quem enviou |
-
-> **Por quê?** `SoftwareSerial` desabilita interrupts globais durante a transmissão de cada byte (~1ms/byte a 9600 baud). Enviar telemetria de alta frequência (D0 dispara a cada ciclo de passos) via SoftwareSerial causaria stuttering nos pulsos do Timer1, prejudicando a precisão dos motores.
+| **Status Global** | ✅ Broadcast Hex | ✅ Texto Traduzido |
+| **Telemetria (D0, C1)**| ✅ Somente USB | ❌ Omitido (Performance) |
+| **Erros (E0–E4)** | ✅ Hex | ✅ Alerta LCD |
 
 ## Features
 
-- **Dual Motor Independente:** Controle simultâneo via Timer1 Dual-Channel Freerunning (COMPA/COMPB).
-- **Alta Precisão:** Alternância de pinos de até 62,5ns, operando em bloco atômico (evitando *jitter*).
-- **Protocolo H8P:** Comunicação 100% hexadecimal otimizada para SRAM de 2KB (20 slots máx.).
-- **Dual Interface:** Controle via Web Serial API (USB) ou teclado matricial físico (SoftwareSerial).
-- **EEPROM Fast Action:** 10 presets pré-gravados com execução instantânea (`18`, `19`, `1A`, `1B`, `1C`).
-- **UI Premium (Tailwind):** Telemetria dual ao vivo, modo escuro em painéis e Command Builder minimalista.
-- **Segurança de Hardware:** Bloco atômico para interrupção de emergência (`STOP`) e *Safety Clamp* de 50µs.
-- **Internacionalização (i18n):** Suporte nativo a `EN-US` e `PT-BR`.
-- **StepCommander V2.2:** Módulo periférico não-bloqueante com LCD 16x2, teclado matricial 4x4, modos Fast Action, fila SRAM persistente (5 slots) com menu interativo, e suporte a comandos de até 64 caracteres. Ver [Docs](./docs/STEPCOMMANDER.md).
+- **Arquitetura Monolítica:** Controle e Interface em um único chip (ATmega2560).
+- **Dual Motor Independente:** Controle via Timer1 Dual-Channel Freerunning.
+- **Alta Precisão:** Alternância de pinos atômica, operando em blocos `cli/sei`.
+- **Protocolo H8P:** Comunicação hexadecimal otimizada (20 slots SRAM máx.).
+- **Atalhos Inteligentes:** `#+A+N` (Save EEPROM), `*+B` (Fast Act), `*+A` (Sinal `-`).
+- **UI Premium (Tailwind):** Telemetria dual ao vivo e modo escuro.
+- **Segurança:** *Safety Clamp* de 50µs e interrupção de emergência instantânea.
+- **EEPROM Fast Action:** 10 slots de execução instantânea e salvamento dinâmico.
+- **Commander V3.0:** Interface não-bloqueante integrada com menu interativo. Ver [Docs](./docs/STEPCOMMANDER.md).
 
 ## Configuration
 
