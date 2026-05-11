@@ -5,10 +5,10 @@
  * Board: Arduino Uno / Nano (Atmega328P)
  * Função: Interface IHM para construir, armazenar e enviar comandos.
  * * * GUIA DE USO DO MENU:
- * [A] - Menu PASSOS: Digite a qtd de passos. Se estiver vazio, aperte 'D' p/
- * negativo. [B] - Menu VELOCIDADE: Digite a velocidade em microssegundos (ex:
- * 500). [C] - Menu MOTOR: Digite o motor alvo (1 ou 2). [D] - APAGAR
- * (Backspace): Apaga o último número. No menu principal, limpa a seleção.
+ * [A] - NAVEGAR: Alterna entre os menus (Line -> Steps -> Speed -> Motor ->
+ * Início). [B] - (Livre para uso futuro) [C] - (Livre para uso futuro) [D] -
+ * APAGAR (Backspace): Apaga o último número. No menu principal, limpa a
+ * seleção.
  * [#] - GRAVAR E ENVIAR: Salva a linha construída na EEPROM local e envia para
  * a placa.
  * -> Se uma linha estiver selecionada (Ex: L:1), apaga (DEL) a linha da
@@ -48,16 +48,17 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
 struct SavedLine {
   bool active;
-  char command[30]; // Espaço suficiente para armazenar algo como
-                    // "9-10:-1600,11:500,14:2"
+  char command[30]; // Espaço suficiente para armazenar a linha de comando
+                    // formatada
 };
 SavedLine savedLines[9];
 
 // --- Máquina de Estados do Menu ---
 enum MenuState {
   MENU_PRINCIPAL,
-  INSERIR_PASSOS,
-  INSERIR_VELOCIDADE,
+  INSERIR_LINE,
+  INSERIR_STEPS,
+  INSERIR_SPEED,
   INSERIR_MOTOR
 };
 MenuState currentState = MENU_PRINCIPAL;
@@ -68,7 +69,7 @@ int runTarget = 0; // 0 = Todas as linhas; 1 a 9 = Linha específica para RUN/DE
 String valPassos = "";
 String valVelocidade = "";
 String valMotor = "";
-String lastStatus = "Pronto.";
+String lastStatus = "Ready.";
 
 bool isRunning = false; // Controla o status dos motores (Sincronizado)
 bool wasRunning =
@@ -77,13 +78,13 @@ bool wasRunning =
 // --- Custom Chars para Animação dos Motores (Pixel Art) ---
 // Quadro 1: Engrenagem / Cruz (+)
 byte f1_TL[8] = {B00000, B00010, B00010, B00010,
-                 B00010, B00010, B11111, B00000}; // Top-Left
+                 B00010, B00010, B11111, B00000};
 byte f1_TR[8] = {B00000, B01000, B01000, B01000,
-                 B01000, B01000, B11111, B00000}; // Top-Right
+                 B01000, B01000, B11111, B00000};
 byte f1_BL[8] = {B11111, B00010, B00010, B00010,
-                 B00010, B00010, B00000, B00000}; // Bot-Left
+                 B00010, B00010, B00000, B00000};
 byte f1_BR[8] = {B11111, B01000, B01000, B01000,
-                 B01000, B01000, B00000, B00000}; // Bot-Right
+                 B01000, B01000, B00000, B00000};
 
 // Quadro 2: Engrenagem / Diagonal (X)
 byte f2_TL[8] = {B10000, B11000, B01100, B00110,
@@ -150,7 +151,6 @@ void loop() {
 }
 
 void initEEPROM() {
-  // Verifica se é a primeira vez rodando o código neste Arduino
   if (EEPROM.read(EEPROM_MAGIC_ADDR) != EEPROM_MAGIC_BYTE) {
     for (int i = 0; i < 9; i++) {
       savedLines[i].active = false;
@@ -160,7 +160,6 @@ void initEEPROM() {
     EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_BYTE);
     Serial.println("EEPROM formatada para uso do Commander.");
   } else {
-    // Carrega dados existentes
     for (int i = 0; i < 9; i++) {
       EEPROM.get(i * sizeof(SavedLine), savedLines[i]);
     }
@@ -173,7 +172,6 @@ int animFrame = 0;
 int animDots = 0;
 
 void drawAnimation() {
-  // Atualiza os quadros a cada 200 milissegundos
   if (millis() - lastAnimTime > 200) {
     lastAnimTime = millis();
     animFrame = !animFrame;
@@ -181,7 +179,6 @@ void drawAnimation() {
     if (animDots > 3)
       animDots = 0;
 
-    // Atualiza pontinhos dinâmicos no meio
     lcd.setCursor(6, 1);
     if (animDots == 0)
       lcd.print("    ");
@@ -192,7 +189,6 @@ void drawAnimation() {
     if (animDots == 3)
       lcd.print("... ");
 
-    // Desenha Motor 1 (Esquerda) e Motor 2 (Direita) alternando quadros
     if (animFrame == 0) {
       lcd.setCursor(1, 0);
       lcd.write(byte(0));
@@ -282,13 +278,11 @@ void handleKeyPress(char key) {
             "RUN L:" + (runTarget == 0 ? String("ALL") : String(runTarget));
         isRunning = true;
       } else {
-        lastStatus = "Erro: Vazio!";
+        lastStatus = "Err: Empty!";
       }
       runTarget = 0;
     }
     currentState = MENU_PRINCIPAL;
-    // O updateLCD será chamado indiretamente pela variável wasRunning caso o
-    // status mude para false
     if (!isRunning)
       updateLCD();
     return;
@@ -305,7 +299,7 @@ void handleKeyPress(char key) {
       memset(savedLines[idx].command, 0, sizeof(savedLines[idx].command));
       EEPROM.put(idx * sizeof(SavedLine), savedLines[idx]);
 
-      lastStatus = "Apagado: L" + String(runTarget);
+      lastStatus = "Deleted: L" + String(runTarget);
       runTarget = 0;
       updateLCD();
       return;
@@ -330,7 +324,7 @@ void handleKeyPress(char key) {
     mainSerial.println(cmdOut);
     Serial.println("Gravado e Enviado: " + cmdOut);
 
-    lastStatus = "Salvo: L" + String(currentLine);
+    lastStatus = "Saved: L" + String(currentLine);
 
     currentLine++;
     if (currentLine > 9)
@@ -346,33 +340,43 @@ void handleKeyPress(char key) {
   }
 
   // ==========================================
-  // NAVEGAÇÃO E EDIÇÃO (A, B, C, D)
+  // NAVEGAÇÃO CICLICA E EDIÇÃO (A, D)
   // ==========================================
+
+  // Apenas a Tecla 'A' alterna as telas de forma cíclica
   if (key == 'A') {
-    runTarget = 0;
-    currentState = INSERIR_PASSOS;
-    updateLCD();
-    return;
-  }
-  if (key == 'B') {
-    runTarget = 0;
-    currentState = INSERIR_VELOCIDADE;
-    updateLCD();
-    return;
-  }
-  if (key == 'C') {
-    runTarget = 0;
-    currentState = INSERIR_MOTOR;
+    runTarget = 0; // Limpa o alvo caso esteja no menu principal
+    if (currentState == MENU_PRINCIPAL)
+      currentState = INSERIR_LINE;
+    else if (currentState == INSERIR_LINE)
+      currentState = INSERIR_STEPS;
+    else if (currentState == INSERIR_STEPS)
+      currentState = INSERIR_SPEED;
+    else if (currentState == INSERIR_SPEED)
+      currentState = INSERIR_MOTOR;
+    else if (currentState == INSERIR_MOTOR)
+      currentState = MENU_PRINCIPAL;
     updateLCD();
     return;
   }
 
+  // Inserção de Dados Numéricos e Apagar (D)
   if ((key >= '0' && key <= '9') || key == 'D') {
+    // Trata a seleção da linha (1 a 9) diretamente
+    if (currentState == INSERIR_LINE) {
+      if (key >= '1' && key <= '9') {
+        currentLine = key - '0';
+        updateLCD();
+      }
+      return; // Bloqueia outros números (ex: 0) ou apagar (D) na seleção de
+              // linha
+    }
+
     String *activeStr = nullptr;
 
-    if (currentState == INSERIR_PASSOS)
+    if (currentState == INSERIR_STEPS)
       activeStr = &valPassos;
-    else if (currentState == INSERIR_VELOCIDADE)
+    else if (currentState == INSERIR_SPEED)
       activeStr = &valVelocidade;
     else if (currentState == INSERIR_MOTOR)
       activeStr = &valMotor;
@@ -381,8 +385,8 @@ void handleKeyPress(char key) {
       if (key == 'D') {
         if (activeStr->length() > 0) {
           activeStr->remove(activeStr->length() - 1);
-        } else if (currentState == INSERIR_PASSOS) {
-          *activeStr = "-";
+        } else if (currentState == INSERIR_STEPS) {
+          *activeStr = "-"; // Transforma em anti-horário
         }
       } else {
         if (activeStr->length() < 8) {
@@ -402,7 +406,7 @@ void updateLCD() {
   case MENU_PRINCIPAL:
     lcd.print("L:");
     lcd.print(currentLine);
-    lcd.print(" A:Ps B:V C:M");
+    lcd.print(" [A]=Config");
     lcd.setCursor(0, 1);
 
     if (runTarget > 0) {
@@ -414,8 +418,16 @@ void updateLCD() {
     }
     break;
 
-  case INSERIR_PASSOS:
-    lcd.print("Passos (Linha ");
+  case INSERIR_LINE:
+    lcd.print("Line Select:");
+    lcd.setCursor(0, 1);
+    lcd.print("> ");
+    lcd.print(currentLine);
+    lcd.blink();
+    break;
+
+  case INSERIR_STEPS:
+    lcd.print("Steps (L:");
     lcd.print(currentLine);
     lcd.print(")");
     lcd.setCursor(0, 1);
@@ -424,8 +436,8 @@ void updateLCD() {
     lcd.blink();
     break;
 
-  case INSERIR_VELOCIDADE:
-    lcd.print("Velocidade (us):");
+  case INSERIR_SPEED:
+    lcd.print("Speed (us):");
     lcd.setCursor(0, 1);
     lcd.print("> ");
     lcd.print(valVelocidade);
@@ -433,7 +445,7 @@ void updateLCD() {
     break;
 
   case INSERIR_MOTOR:
-    lcd.print("Motor (1 ou 2):");
+    lcd.print("Motor (1 or 2):");
     lcd.setCursor(0, 1);
     lcd.print("> ");
     lcd.print(valMotor);
