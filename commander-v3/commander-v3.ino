@@ -6,9 +6,9 @@
  * Função: Interface IHM para construir, armazenar e enviar comandos.
  * * * GUIA DE USO DO MENU:
  * [A] - NAVEGAR: Alterna entre os menus (Line -> Steps -> Speed -> Motor ->
- * Início). [B] - (Livre para uso futuro) [C] - (Livre para uso futuro) [D] -
- * APAGAR (Backspace): Apaga o último número. No menu principal, limpa a
- * seleção.
+ * Disable -> Início). [B] - (Livre para uso futuro) [C] - (Livre para uso
+ * futuro) [D] - APAGAR (Backspace): Apaga o último número. No menu principal,
+ * limpa a seleção.
  * [#] - GRAVAR E ENVIAR: Salva a linha construída na EEPROM local e envia para
  * a placa.
  * -> Se uma linha estiver selecionada (Ex: L:1), apaga (DEL) a linha da
@@ -43,13 +43,12 @@ byte colPins[COLS] = {9, 8, 7, 6};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
 // --- EEPROM e Dados Locais ---
-#define EEPROM_MAGIC_BYTE 0x42
+#define EEPROM_MAGIC_BYTE 0x43
 #define EEPROM_MAGIC_ADDR 1000
 
 struct SavedLine {
   bool active;
-  char command[30]; // Espaço suficiente para armazenar a linha de comando
-                    // formatada
+  char command[40];
 };
 SavedLine savedLines[9];
 
@@ -59,7 +58,8 @@ enum MenuState {
   INSERIR_LINE,
   INSERIR_STEPS,
   INSERIR_SPEED,
-  INSERIR_MOTOR
+  INSERIR_MOTOR,
+  INSERIR_DISABLE
 };
 MenuState currentState = MENU_PRINCIPAL;
 
@@ -69,32 +69,22 @@ int runTarget = 0; // 0 = Todas as linhas; 1 a 9 = Linha específica para RUN/DE
 String valPassos = "";
 String valVelocidade = "";
 String valMotor = "";
+String valDisable = ""; // Parâmetro 15 (1=Yes(15:0), 2=No(15:1))
 String lastStatus = "Ready.";
 
-bool isRunning = false; // Controla o status dos motores (Sincronizado)
-bool wasRunning =
-    false; // Usado para identificar transição de tela para a animação
+bool isRunning = false;
+bool wasRunning = false;
+int animDirection =
+    1; // 1 = Positivo (Esq. para Dir.), -1 = Negativo (Dir. para Esq.)
 
-// --- Custom Chars para Animação dos Motores (Pixel Art) ---
-// Quadro 1: Engrenagem / Cruz (+)
-byte f1_TL[8] = {B00000, B00010, B00010, B00010,
-                 B00010, B00010, B11111, B00000};
-byte f1_TR[8] = {B00000, B01000, B01000, B01000,
-                 B01000, B01000, B11111, B00000};
-byte f1_BL[8] = {B11111, B00010, B00010, B00010,
-                 B00010, B00010, B00000, B00000};
-byte f1_BR[8] = {B11111, B01000, B01000, B01000,
-                 B01000, B01000, B00000, B00000};
+// --- Custom Chars para Animação de Setas ---
+// Seta apontando para a Esquerda (<)
+byte arrowLeft[8] = {0b00001, 0b00011, 0b00111, 0b01111,
+                     0b01111, 0b00111, 0b00011, 0b00001};
 
-// Quadro 2: Engrenagem / Diagonal (X)
-byte f2_TL[8] = {B10000, B11000, B01100, B00110,
-                 B00011, B00001, B00000, B00000};
-byte f2_TR[8] = {B00001, B00011, B00110, B01100,
-                 B11000, B10000, B00000, B00000};
-byte f2_BL[8] = {B00000, B00000, B00001, B00011,
-                 B00110, B01100, B11000, B10000};
-byte f2_BR[8] = {B00000, B00000, B10000, B11000,
-                 B01100, B00110, B00011, B00001};
+// Seta apontando para a Direita (>)
+byte arrowRight[8] = {0b10000, 0b11000, 0b11100, 0b11110,
+                      0b11110, 0b11100, 0b11000, 0b10000};
 
 // --- Protótipos ---
 void initEEPROM();
@@ -111,14 +101,8 @@ void setup() {
   lcd.backlight();
 
   // Carregamento dos caracteres customizados na VRAM do LCD
-  lcd.createChar(0, f1_TL);
-  lcd.createChar(1, f1_TR);
-  lcd.createChar(2, f1_BL);
-  lcd.createChar(3, f1_BR);
-  lcd.createChar(4, f2_TL);
-  lcd.createChar(5, f2_TR);
-  lcd.createChar(6, f2_BL);
-  lcd.createChar(7, f2_BR);
+  lcd.createChar(0, arrowLeft);
+  lcd.createChar(1, arrowRight);
 
   initEEPROM();
 
@@ -137,8 +121,8 @@ void loop() {
   if (isRunning && !wasRunning) {
     lcd.clear();
     wasRunning = true;
-    lcd.setCursor(6, 0);
-    lcd.print("RUN ");
+    lcd.setCursor(0, 0);
+    lcd.print(lastStatus); // Exibe o alvo da execução (Ex: RUN L:ALL)
   } else if (!isRunning && wasRunning) {
     wasRunning = false;
     updateLCD(); // Restaura o menu normal quando os motores param
@@ -169,52 +153,45 @@ void initEEPROM() {
 
 unsigned long lastAnimTime = 0;
 int animFrame = 0;
-int animDots = 0;
 
 void drawAnimation() {
-  if (millis() - lastAnimTime > 200) {
+  // Atualiza as posições a cada 150 milissegundos para um movimento fluido
+  if (millis() - lastAnimTime > 150) {
     lastAnimTime = millis();
-    animFrame = !animFrame;
-    animDots++;
-    if (animDots > 3)
-      animDots = 0;
+    animFrame++;
+    if (animFrame > 15)
+      animFrame = 0; // O display tem 16 colunas (0 a 15)
 
-    lcd.setCursor(6, 1);
-    if (animDots == 0)
-      lcd.print("    ");
-    if (animDots == 1)
-      lcd.print(".   ");
-    if (animDots == 2)
-      lcd.print("..  ");
-    if (animDots == 3)
-      lcd.print("... ");
+    lcd.setCursor(0, 1);
+    for (int i = 0; i < 16; i++) {
+      bool isArrow = false;
 
-    if (animFrame == 0) {
-      lcd.setCursor(1, 0);
-      lcd.write(byte(0));
-      lcd.write(byte(1));
-      lcd.setCursor(1, 1);
-      lcd.write(byte(2));
-      lcd.write(byte(3));
-      lcd.setCursor(12, 0);
-      lcd.write(byte(0));
-      lcd.write(byte(1));
-      lcd.setCursor(12, 1);
-      lcd.write(byte(2));
-      lcd.write(byte(3));
-    } else {
-      lcd.setCursor(1, 0);
-      lcd.write(byte(4));
-      lcd.write(byte(5));
-      lcd.setCursor(1, 1);
-      lcd.write(byte(6));
-      lcd.write(byte(7));
-      lcd.setCursor(12, 0);
-      lcd.write(byte(4));
-      lcd.write(byte(5));
-      lcd.setCursor(12, 1);
-      lcd.write(byte(6));
-      lcd.write(byte(7));
+      if (animDirection == -1) {
+        // --- MOTOR ANTI-HORÁRIO (Negativo) ---
+        // Seta apontando para direita (>) com movimento da Esquerda para a
+        // Direita
+        int head = animFrame % 16;
+        if (i == head || i == (head - 1 + 16) % 16 || i == (head - 2 + 16) % 16)
+          isArrow = true;
+
+        if (isArrow)
+          lcd.write(byte(1));
+        else
+          lcd.print(" ");
+
+      } else {
+        // --- MOTOR HORÁRIO (Positivo) ---
+        // Seta apontando para esquerda (<) com movimento da Direita para a
+        // Esquerda
+        int head = (15 - (animFrame % 16)) % 16;
+        if (i == head || i == (head + 1) % 16 || i == (head + 2) % 16)
+          isArrow = true;
+
+        if (isArrow)
+          lcd.write(byte(0));
+        else
+          lcd.print(" ");
+      }
     }
   }
 }
@@ -254,10 +231,15 @@ void handleKeyPress(char key) {
       runTarget = 0;
     } else {
       bool sentAnything = false;
+      animDirection =
+          1; // Reseta para a direção Padrão (Positivo / Direita-Esquerda)
 
       if (runTarget == 0) {
         for (int i = 0; i < 9; i++) {
           if (savedLines[i].active) {
+            // Descobre a direção baseando-se na linha armazenada
+            if (String(savedLines[i].command).indexOf("10:-") != -1)
+              animDirection = -1;
             mainSerial.println(savedLines[i].command);
             delay(60);
             sentAnything = true;
@@ -266,6 +248,8 @@ void handleKeyPress(char key) {
       } else {
         int idx = runTarget - 1;
         if (savedLines[idx].active) {
+          if (String(savedLines[idx].command).indexOf("10:-") != -1)
+            animDirection = -1;
           mainSerial.println(savedLines[idx].command);
           delay(60);
           sentAnything = true;
@@ -316,9 +300,15 @@ void handleKeyPress(char key) {
     if (valMotor.length() > 0)
       cmdOut += ",14:" + valMotor;
 
+    // Processamento do novo parâmetro Disable (1=Yes(15:0), 2=No(15:1))
+    if (valDisable == "1")
+      cmdOut += ",15:0";
+    else if (valDisable == "2")
+      cmdOut += ",15:1";
+
     int idx = currentLine - 1;
     savedLines[idx].active = true;
-    cmdOut.toCharArray(savedLines[idx].command, 30);
+    cmdOut.toCharArray(savedLines[idx].command, 40);
     EEPROM.put(idx * sizeof(SavedLine), savedLines[idx]);
 
     mainSerial.println(cmdOut);
@@ -333,6 +323,7 @@ void handleKeyPress(char key) {
     valPassos = "";
     valVelocidade = "";
     valMotor = "";
+    valDisable = ""; // Limpa a escolha para a próxima linha
     runTarget = 0;
     currentState = MENU_PRINCIPAL;
     updateLCD();
@@ -343,9 +334,8 @@ void handleKeyPress(char key) {
   // NAVEGAÇÃO CICLICA E EDIÇÃO (A, D)
   // ==========================================
 
-  // Apenas a Tecla 'A' alterna as telas de forma cíclica
   if (key == 'A') {
-    runTarget = 0; // Limpa o alvo caso esteja no menu principal
+    runTarget = 0;
     if (currentState == MENU_PRINCIPAL)
       currentState = INSERIR_LINE;
     else if (currentState == INSERIR_LINE)
@@ -355,21 +345,20 @@ void handleKeyPress(char key) {
     else if (currentState == INSERIR_SPEED)
       currentState = INSERIR_MOTOR;
     else if (currentState == INSERIR_MOTOR)
+      currentState = INSERIR_DISABLE;
+    else if (currentState == INSERIR_DISABLE)
       currentState = MENU_PRINCIPAL;
     updateLCD();
     return;
   }
 
-  // Inserção de Dados Numéricos e Apagar (D)
   if ((key >= '0' && key <= '9') || key == 'D') {
-    // Trata a seleção da linha (1 a 9) diretamente
     if (currentState == INSERIR_LINE) {
       if (key >= '1' && key <= '9') {
         currentLine = key - '0';
         updateLCD();
       }
-      return; // Bloqueia outros números (ex: 0) ou apagar (D) na seleção de
-              // linha
+      return;
     }
 
     String *activeStr = nullptr;
@@ -380,6 +369,8 @@ void handleKeyPress(char key) {
       activeStr = &valVelocidade;
     else if (currentState == INSERIR_MOTOR)
       activeStr = &valMotor;
+    else if (currentState == INSERIR_DISABLE)
+      activeStr = &valDisable;
 
     if (activeStr != nullptr) {
       if (key == 'D') {
@@ -389,8 +380,14 @@ void handleKeyPress(char key) {
           *activeStr = "-"; // Transforma em anti-horário
         }
       } else {
-        if (activeStr->length() < 8) {
-          *activeStr += key;
+        if (currentState == INSERIR_DISABLE || currentState == INSERIR_MOTOR) {
+          if (key == '1' || key == '2') {
+            *activeStr = key;
+          }
+        } else {
+          if (activeStr->length() < 8) {
+            *activeStr += key;
+          }
         }
       }
       updateLCD();
@@ -449,6 +446,14 @@ void updateLCD() {
     lcd.setCursor(0, 1);
     lcd.print("> ");
     lcd.print(valMotor);
+    lcd.blink();
+    break;
+
+  case INSERIR_DISABLE:
+    lcd.print("Disable? 1:Y 2:N");
+    lcd.setCursor(0, 1);
+    lcd.print("> ");
+    lcd.print(valDisable);
     lcd.blink();
     break;
   }
