@@ -26,6 +26,17 @@
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 
+// Descomente para ativar prints de debug via Serial USB
+// #define DEBUG_SERIAL
+
+#ifdef DEBUG_SERIAL
+  #define DBG(x) Serial.println(F(x))
+  #define DBG_VAR(prefix, var) do { Serial.print(F(prefix)); Serial.println(var); } while(0)
+#else
+  #define DBG(x)
+  #define DBG_VAR(prefix, var)
+#endif
+
 // --- Configurações dos Periféricos ---
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 SoftwareSerial mainSerial(10, 11);
@@ -43,17 +54,18 @@ byte colPins[COLS] = {9, 8, 7, 6};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
 // --- EEPROM e Dados Locais ---
-#define EEPROM_MAGIC_BYTE 0x43
+// NOTA: Magic byte alterado de 0x43 para 0x44 devido à mudança no tamanho do struct
+#define EEPROM_MAGIC_BYTE 0x44
 #define EEPROM_MAGIC_ADDR 1000
 
 struct SavedLine {
+  char command[34];
   bool active;
-  char command[40];
 };
 SavedLine savedLines[9];
 
 // --- Máquina de Estados do Menu ---
-enum MenuState {
+enum MenuState : uint8_t {
   MENU_PRINCIPAL,
   INSERIR_LINE,
   INSERIR_STEPS,
@@ -64,27 +76,32 @@ enum MenuState {
 MenuState currentState = MENU_PRINCIPAL;
 
 // --- Variáveis de Construção e Execução ---
-int currentLine = 1; // Linha atual em edição (1 a 9)
-int runTarget = 0; // 0 = Todas as linhas; 1 a 9 = Linha específica para RUN/DEL
-String valPassos = "";
-String valVelocidade = "";
-String valMotor = "";
-String valDisable = ""; // Parâmetro 15 (1=Yes(15:0), 2=No(15:1))
-String lastStatus = "Ready.";
+int8_t currentLine = 1;    // Linha atual em edição (1 a 9)
+int8_t runTarget = 0;      // 0 = Todas as linhas; 1 a 9 = Linha específica para RUN/DEL
+
+char valPassos[10];
+uint8_t lenPassos = 0;
+
+char valVelocidade[6];
+uint8_t lenVelocidade = 0;
+
+char valMotor = 0;         // '1' ou '2', 0 = não definido
+char valDisable = 0;       // '1' ou '2', 0 = não definido (Parâmetro 15: 1=Yes(15:0), 2=No(15:1))
+
+char lastStatus[17];       // LCD = 16 cols + null
 
 bool isRunning = false;
 bool wasRunning = false;
-int animDirection =
-    1; // 1 = Positivo (Esq. para Dir.), -1 = Negativo (Dir. para Esq.)
+int8_t animDirection = 1;  // 1 = Positivo (Esq. para Dir.), -1 = Negativo (Dir. para Esq.)
 
-// --- Custom Chars para Animação de Setas ---
+// --- Custom Chars para Animação de Setas (PROGMEM) ---
 // Seta apontando para a Esquerda (<)
-byte arrowLeft[8] = {0b00001, 0b00011, 0b00111, 0b01111,
-                     0b01111, 0b00111, 0b00011, 0b00001};
+const byte arrowLeft[] PROGMEM = {0b00001, 0b00011, 0b00111, 0b01111,
+                                  0b01111, 0b00111, 0b00011, 0b00001};
 
 // Seta apontando para a Direita (>)
-byte arrowRight[8] = {0b10000, 0b11000, 0b11100, 0b11110,
-                      0b11110, 0b11100, 0b11000, 0b10000};
+const byte arrowRight[] PROGMEM = {0b10000, 0b11000, 0b11100, 0b11110,
+                                   0b11110, 0b11100, 0b11000, 0b10000};
 
 // --- Protótipos ---
 void initEEPROM();
@@ -93,6 +110,25 @@ void handleKeyPress(char key);
 void processIncomingMessage();
 void drawAnimation();
 
+// --- Helpers para buffers char[] ---
+static void bufAppend(char *buf, uint8_t &len, uint8_t maxLen, char c) {
+  if (len < maxLen - 1) {
+    buf[len++] = c;
+    buf[len] = '\0';
+  }
+}
+
+static void bufBackspace(char *buf, uint8_t &len) {
+  if (len > 0) {
+    buf[--len] = '\0';
+  }
+}
+
+static void bufClear(char *buf, uint8_t &len) {
+  buf[0] = '\0';
+  len = 0;
+}
+
 void setup() {
   Serial.begin(9600);
   mainSerial.begin(9600);
@@ -100,13 +136,21 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
-  // Carregamento dos caracteres customizados na VRAM do LCD
-  lcd.createChar(0, arrowLeft);
-  lcd.createChar(1, arrowRight);
+  // Carregamento dos caracteres customizados na VRAM do LCD (leitura PROGMEM)
+  byte buf[8];
+  memcpy_P(buf, arrowLeft, 8);
+  lcd.createChar(0, buf);
+  memcpy_P(buf, arrowRight, 8);
+  lcd.createChar(1, buf);
+
+  // Inicializa buffers
+  valPassos[0] = '\0';
+  valVelocidade[0] = '\0';
+  strncpy_P(lastStatus, PSTR("Ready."), sizeof(lastStatus));
 
   initEEPROM();
 
-  Serial.println("Commander Menu Iniciado (Com EEPROM).");
+  DBG("Commander Menu Iniciado (Com EEPROM).");
   updateLCD();
 }
 
@@ -136,63 +180,45 @@ void loop() {
 
 void initEEPROM() {
   if (EEPROM.read(EEPROM_MAGIC_ADDR) != EEPROM_MAGIC_BYTE) {
-    for (int i = 0; i < 9; i++) {
+    for (uint8_t i = 0; i < 9; i++) {
       savedLines[i].active = false;
       memset(savedLines[i].command, 0, sizeof(savedLines[i].command));
       EEPROM.put(i * sizeof(SavedLine), savedLines[i]);
     }
     EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_BYTE);
-    Serial.println("EEPROM formatada para uso do Commander.");
+    DBG("EEPROM formatada para uso do Commander.");
   } else {
-    for (int i = 0; i < 9; i++) {
+    for (uint8_t i = 0; i < 9; i++) {
       EEPROM.get(i * sizeof(SavedLine), savedLines[i]);
     }
-    Serial.println("Dados carregados da EEPROM local.");
+    DBG("Dados carregados da EEPROM local.");
   }
 }
 
 unsigned long lastAnimTime = 0;
-int animFrame = 0;
+uint8_t animFrame = 0;
 
 void drawAnimation() {
   // Atualiza as posições a cada 150 milissegundos para um movimento fluido
-  if (millis() - lastAnimTime > 150) {
-    lastAnimTime = millis();
-    animFrame++;
-    if (animFrame > 15)
-      animFrame = 0; // O display tem 16 colunas (0 a 15)
+  if (millis() - lastAnimTime <= 150) return;
+  lastAnimTime = millis();
+  animFrame = (animFrame + 1) & 0x0F; // mod 16 via bitmask
 
-    lcd.setCursor(0, 1);
-    for (int i = 0; i < 16; i++) {
-      bool isArrow = false;
+  lcd.setCursor(0, 1);
+  uint8_t charIdx = (animDirection == -1) ? 1 : 0;
+  int8_t head = (animDirection == -1)
+    ? (int8_t)(animFrame & 0x0F)
+    : (int8_t)((15 - (animFrame & 0x0F)) & 0x0F);
 
-      if (animDirection == -1) {
-        // --- MOTOR ANTI-HORÁRIO (Negativo) ---
-        // Seta apontando para direita (>) com movimento da Esquerda para a
-        // Direita
-        int head = animFrame % 16;
-        if (i == head || i == (head - 1 + 16) % 16 || i == (head - 2 + 16) % 16)
-          isArrow = true;
+  for (uint8_t i = 0; i < 16; i++) {
+    bool isArrow = (i == head) ||
+                   (i == ((head - animDirection + 16) % 16)) ||
+                   (i == ((head - 2 * animDirection + 16) % 16));
 
-        if (isArrow)
-          lcd.write(byte(1));
-        else
-          lcd.print(" ");
-
-      } else {
-        // --- MOTOR HORÁRIO (Positivo) ---
-        // Seta apontando para esquerda (<) com movimento da Direita para a
-        // Esquerda
-        int head = (15 - (animFrame % 16)) % 16;
-        if (i == head || i == (head + 1) % 16 || i == (head + 2) % 16)
-          isArrow = true;
-
-        if (isArrow)
-          lcd.write(byte(0));
-        else
-          lcd.print(" ");
-      }
-    }
+    if (isArrow)
+      lcd.write(charIdx);
+    else
+      lcd.print(' ');
   }
 }
 
@@ -225,8 +251,8 @@ void handleKeyPress(char key) {
   // ==========================================
   if (key == '*') {
     if (isRunning && runTarget == 0) {
-      mainSerial.println("02");
-      lastStatus = "Cmd: 02 (STOP)";
+      mainSerial.println(F("02"));
+      strncpy_P(lastStatus, PSTR("Cmd: 02 (STOP)"), sizeof(lastStatus));
       isRunning = false;
       runTarget = 0;
     } else {
@@ -235,10 +261,10 @@ void handleKeyPress(char key) {
           1; // Reseta para a direção Padrão (Positivo / Direita-Esquerda)
 
       if (runTarget == 0) {
-        for (int i = 0; i < 9; i++) {
+        for (uint8_t i = 0; i < 9; i++) {
           if (savedLines[i].active) {
             // Descobre a direção baseando-se na linha armazenada
-            if (String(savedLines[i].command).indexOf("10:-") != -1)
+            if (strstr(savedLines[i].command, "10:-"))
               animDirection = -1;
             mainSerial.println(savedLines[i].command);
             delay(60);
@@ -246,9 +272,9 @@ void handleKeyPress(char key) {
           }
         }
       } else {
-        int idx = runTarget - 1;
+        uint8_t idx = runTarget - 1;
         if (savedLines[idx].active) {
-          if (String(savedLines[idx].command).indexOf("10:-") != -1)
+          if (strstr(savedLines[idx].command, "10:-"))
             animDirection = -1;
           mainSerial.println(savedLines[idx].command);
           delay(60);
@@ -257,12 +283,15 @@ void handleKeyPress(char key) {
       }
 
       if (sentAnything) {
-        mainSerial.println("01");
-        lastStatus =
-            "RUN L:" + (runTarget == 0 ? String("ALL") : String(runTarget));
+        mainSerial.println(F("01"));
+        if (runTarget == 0) {
+          strncpy_P(lastStatus, PSTR("RUN L:ALL"), sizeof(lastStatus));
+        } else {
+          snprintf_P(lastStatus, sizeof(lastStatus), PSTR("RUN L:%d"), runTarget);
+        }
         isRunning = true;
       } else {
-        lastStatus = "Err: Empty!";
+        strncpy_P(lastStatus, PSTR("Err: Empty!"), sizeof(lastStatus));
       }
       runTarget = 0;
     }
@@ -277,53 +306,55 @@ void handleKeyPress(char key) {
   // ==========================================
   if (key == '#') {
     if (currentState == MENU_PRINCIPAL && runTarget > 0) {
-      int idx = runTarget - 1;
+      uint8_t idx = runTarget - 1;
 
       savedLines[idx].active = false;
       memset(savedLines[idx].command, 0, sizeof(savedLines[idx].command));
       EEPROM.put(idx * sizeof(SavedLine), savedLines[idx]);
 
-      lastStatus = "Deleted: L" + String(runTarget);
+      snprintf_P(lastStatus, sizeof(lastStatus), PSTR("Deleted: L%d"), runTarget);
       runTarget = 0;
       updateLCD();
       return;
     }
 
-    if (valPassos == "")
-      valPassos = "0";
-    if (valPassos == "-")
-      valPassos = "-0";
+    if (lenPassos == 0)
+      strncpy(valPassos, "0", sizeof(valPassos));
+    else if (lenPassos == 1 && valPassos[0] == '-')
+      strncpy(valPassos, "-0", sizeof(valPassos));
 
-    String cmdOut = String(currentLine) + "-10:" + valPassos;
-    if (valVelocidade.length() > 0)
-      cmdOut += ",11:" + valVelocidade;
-    if (valMotor.length() > 0)
-      cmdOut += ",14:" + valMotor;
+    char cmdOut[34];
+    int pos = snprintf(cmdOut, sizeof(cmdOut), "%d-10:%s", currentLine, valPassos);
+    if (lenVelocidade > 0)
+      pos += snprintf(cmdOut + pos, sizeof(cmdOut) - pos, ",11:%s", valVelocidade);
+    if (valMotor != 0)
+      pos += snprintf(cmdOut + pos, sizeof(cmdOut) - pos, ",14:%c", valMotor);
 
     // Processamento do novo parâmetro Disable (1=Yes(15:0), 2=No(15:1))
-    if (valDisable == "1")
-      cmdOut += ",15:0";
-    else if (valDisable == "2")
-      cmdOut += ",15:1";
+    if (valDisable == '1')
+      pos += snprintf(cmdOut + pos, sizeof(cmdOut) - pos, ",15:0");
+    else if (valDisable == '2')
+      pos += snprintf(cmdOut + pos, sizeof(cmdOut) - pos, ",15:1");
 
-    int idx = currentLine - 1;
+    uint8_t idx = currentLine - 1;
     savedLines[idx].active = true;
-    cmdOut.toCharArray(savedLines[idx].command, 40);
+    strncpy(savedLines[idx].command, cmdOut, sizeof(savedLines[idx].command));
+    savedLines[idx].command[sizeof(savedLines[idx].command) - 1] = '\0';
     EEPROM.put(idx * sizeof(SavedLine), savedLines[idx]);
 
     mainSerial.println(cmdOut);
-    Serial.println("Gravado e Enviado: " + cmdOut);
+    DBG_VAR("Gravado e Enviado: ", cmdOut);
 
-    lastStatus = "Saved: L" + String(currentLine);
+    snprintf_P(lastStatus, sizeof(lastStatus), PSTR("Saved: L%d"), currentLine);
 
     currentLine++;
     if (currentLine > 9)
       currentLine = 1;
 
-    valPassos = "";
-    valVelocidade = "";
-    valMotor = "";
-    valDisable = ""; // Limpa a escolha para a próxima linha
+    bufClear(valPassos, lenPassos);
+    bufClear(valVelocidade, lenVelocidade);
+    valMotor = 0;
+    valDisable = 0; // Limpa a escolha para a próxima linha
     runTarget = 0;
     currentState = MENU_PRINCIPAL;
     updateLCD();
@@ -361,34 +392,38 @@ void handleKeyPress(char key) {
       return;
     }
 
-    String *activeStr = nullptr;
-
-    if (currentState == INSERIR_STEPS)
-      activeStr = &valPassos;
-    else if (currentState == INSERIR_SPEED)
-      activeStr = &valVelocidade;
-    else if (currentState == INSERIR_MOTOR)
-      activeStr = &valMotor;
-    else if (currentState == INSERIR_DISABLE)
-      activeStr = &valDisable;
-
-    if (activeStr != nullptr) {
+    if (currentState == INSERIR_STEPS) {
       if (key == 'D') {
-        if (activeStr->length() > 0) {
-          activeStr->remove(activeStr->length() - 1);
-        } else if (currentState == INSERIR_STEPS) {
-          *activeStr = "-"; // Transforma em anti-horário
+        if (lenPassos > 0) {
+          bufBackspace(valPassos, lenPassos);
+        } else {
+          valPassos[0] = '-'; // Transforma em anti-horário
+          valPassos[1] = '\0';
+          lenPassos = 1;
         }
       } else {
-        if (currentState == INSERIR_DISABLE || currentState == INSERIR_MOTOR) {
-          if (key == '1' || key == '2') {
-            *activeStr = key;
-          }
-        } else {
-          if (activeStr->length() < 8) {
-            *activeStr += key;
-          }
-        }
+        bufAppend(valPassos, lenPassos, sizeof(valPassos), key);
+      }
+      updateLCD();
+    } else if (currentState == INSERIR_SPEED) {
+      if (key == 'D') {
+        bufBackspace(valVelocidade, lenVelocidade);
+      } else {
+        bufAppend(valVelocidade, lenVelocidade, sizeof(valVelocidade), key);
+      }
+      updateLCD();
+    } else if (currentState == INSERIR_MOTOR) {
+      if (key == 'D') {
+        valMotor = 0;
+      } else if (key == '1' || key == '2') {
+        valMotor = key;
+      }
+      updateLCD();
+    } else if (currentState == INSERIR_DISABLE) {
+      if (key == 'D') {
+        valDisable = 0;
+      } else if (key == '1' || key == '2') {
+        valDisable = key;
       }
       updateLCD();
     }
@@ -401,59 +436,59 @@ void updateLCD() {
 
   switch (currentState) {
   case MENU_PRINCIPAL:
-    lcd.print("L:");
+    lcd.print(F("L:"));
     lcd.print(currentLine);
-    lcd.print(" [A]=Config");
+    lcd.print(F(" [A]=Config"));
     lcd.setCursor(0, 1);
 
     if (runTarget > 0) {
-      lcd.print("L:");
+      lcd.print(F("L:"));
       lcd.print(runTarget);
-      lcd.print(" *=RUN #=DEL");
+      lcd.print(F(" *=RUN #=DEL"));
     } else {
-      lcd.print(lastStatus.substring(0, 16));
+      lcd.print(lastStatus);
     }
     break;
 
   case INSERIR_LINE:
-    lcd.print("Line Select:");
+    lcd.print(F("Line Select:"));
     lcd.setCursor(0, 1);
-    lcd.print("> ");
+    lcd.print(F("> "));
     lcd.print(currentLine);
     lcd.blink();
     break;
 
   case INSERIR_STEPS:
-    lcd.print("Steps (L:");
+    lcd.print(F("Steps (L:"));
     lcd.print(currentLine);
-    lcd.print(")");
+    lcd.print(F(")"));
     lcd.setCursor(0, 1);
-    lcd.print("> ");
+    lcd.print(F("> "));
     lcd.print(valPassos);
     lcd.blink();
     break;
 
   case INSERIR_SPEED:
-    lcd.print("Speed (us):");
+    lcd.print(F("Speed (us):"));
     lcd.setCursor(0, 1);
-    lcd.print("> ");
+    lcd.print(F("> "));
     lcd.print(valVelocidade);
     lcd.blink();
     break;
 
   case INSERIR_MOTOR:
-    lcd.print("Motor (1 or 2):");
+    lcd.print(F("Motor (1 or 2):"));
     lcd.setCursor(0, 1);
-    lcd.print("> ");
-    lcd.print(valMotor);
+    lcd.print(F("> "));
+    if (valMotor != 0) lcd.print(valMotor);
     lcd.blink();
     break;
 
   case INSERIR_DISABLE:
-    lcd.print("Disable? 1:Y 2:N");
+    lcd.print(F("Disable? 1:Y 2:N"));
     lcd.setCursor(0, 1);
-    lcd.print("> ");
-    lcd.print(valDisable);
+    lcd.print(F("> "));
+    if (valDisable != 0) lcd.print(valDisable);
     lcd.blink();
     break;
   }
@@ -465,18 +500,27 @@ void updateLCD() {
 
 void processIncomingMessage() {
   if (mainSerial.available()) {
-    String msg = mainSerial.readStringUntil('\n');
-    msg.trim();
-    if (msg.length() > 0) {
-      if (msg.indexOf("Iniciando") != -1) {
+    char msgBuf[32];
+    uint8_t msgLen = 0;
+    while (mainSerial.available() && msgLen < sizeof(msgBuf) - 1) {
+      char c = mainSerial.read();
+      if (c == '\n') break;
+      msgBuf[msgLen++] = c;
+    }
+    msgBuf[msgLen] = '\0';
+    // trim trailing \r
+    if (msgLen > 0 && msgBuf[msgLen - 1] == '\r') msgBuf[--msgLen] = '\0';
+
+    if (msgLen > 0) {
+      if (strstr_P(msgBuf, PSTR("Iniciando"))) {
         isRunning = true;
-      } else if (msg.indexOf("Parando") != -1 ||
-                 msg.indexOf("concluidas") != -1) {
+      } else if (strstr_P(msgBuf, PSTR("Parando")) ||
+                 strstr_P(msgBuf, PSTR("concluidas"))) {
         isRunning = false;
       }
 
       if (runTarget == 0) {
-        lastStatus = "RX:" + msg;
+        snprintf_P(lastStatus, sizeof(lastStatus), PSTR("RX:%.13s"), msgBuf);
         if (currentState == MENU_PRINCIPAL && !isRunning) {
           updateLCD();
         }
